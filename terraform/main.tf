@@ -1,11 +1,27 @@
 # Define local variables for consistency
 locals {
-  availability_zones = ["us-east-1a", "us-east-1b"]
+  # CHANGED: Availability Zones for us-west-2
+  availability_zones = ["us-west-2a", "us-west-2b"]
   cidr_ranges = {
     public_0  = "10.0.0.0/24"
     public_1  = "10.0.1.0/24"
     private_0 = "10.0.2.0/24"
     private_1 = "10.0.3.0/24"
+  }
+}
+
+data "aws_ami" "amazon_linux_2" {
+  most_recent = true
+  owners      = ["amazon"]
+
+  filter {
+    name   = "name"
+    values = ["amzn2-ami-hvm-*-x86_64-gp2"]
+  }
+
+  filter {
+    name   = "virtualization-type"
+    values = ["hvm"]
   }
 }
 
@@ -19,10 +35,10 @@ resource "aws_vpc" "main" {
 }
 
 resource "aws_subnet" "public" {
-  for_each               = toset(local.availability_zones)
-  vpc_id                 = aws_vpc.main.id
-  cidr_block             = local.cidr_ranges["public_${index(local.availability_zones, each.value)}"]
-  availability_zone      = each.value
+  for_each                = toset(local.availability_zones)
+  vpc_id                  = aws_vpc.main.id
+  cidr_block              = local.cidr_ranges["public_${index(local.availability_zones, each.value)}"]
+  availability_zone       = each.value
   map_public_ip_on_launch = true
   tags = {
     Name = "${var.project_name}-public-subnet-${each.value}"
@@ -30,10 +46,10 @@ resource "aws_subnet" "public" {
 }
 
 resource "aws_subnet" "private" {
-  for_each               = toset(local.availability_zones)
-  vpc_id                 = aws_vpc.main.id
-  cidr_block             = local.cidr_ranges["private_${index(local.availability_zones, each.value)}"]
-  availability_zone      = each.value
+  for_each                = toset(local.availability_zones)
+  vpc_id                  = aws_vpc.main.id
+  cidr_block              = local.cidr_ranges["private_${index(local.availability_zones, each.value)}"]
+  availability_zone       = each.value
   tags = {
     Name = "${var.project_name}-private-subnet-${each.value}"
   }
@@ -82,11 +98,11 @@ resource "aws_security_group" "alb" {
 }
 
 resource "aws_lb" "main" {
-  name               = "${var.project_name}-alb"
-  internal           = false
-  load_balancer_type = "application"
-  security_groups    = [aws_security_group.alb.id]
-  subnets            = [for subnet in aws_subnet.public : subnet.id]
+  name                = "${var.project_name}-alb"
+  internal            = false
+  load_balancer_type  = "application"
+  security_groups     = [aws_security_group.alb.id]
+  subnets             = [for subnet in aws_subnet.public : subnet.id]
 }
 
 resource "aws_lb_target_group" "app" {
@@ -179,10 +195,11 @@ resource "aws_iam_instance_profile" "main" {
 }
 
 resource "aws_launch_template" "main" {
-  name_prefix          = "${var.project_name}-lt-"
-  image_id             = var.ami_id
-  instance_type        = "t2.micro"
-  key_name             = "demo-1"
+  name_prefix            = "${var.project_name}-lt-"
+  image_id               = data.aws_ami.amazon_linux_2.id
+  instance_type          = "t2.micro"
+  # IMPORTANT: This key pair must exist in the us-west-2 region.
+  key_name               = "sandy" 
   vpc_security_group_ids = [aws_security_group.ec2.id]
   iam_instance_profile {
     arn = aws_iam_instance_profile.main.arn
@@ -193,6 +210,7 @@ sudo yum update -y
 sudo yum install -y ruby
 sudo yum install -y wget
 cd /home/ec2-user
+# CHANGED: Using var.aws_region to make the CodeDeploy URL dynamic
 wget https://aws-codedeploy-${var.aws_region}.s3.${var.aws_region}.amazonaws.com/latest/install
 chmod +x ./install
 sudo ./install auto
@@ -205,29 +223,29 @@ EOF
 }
 
 resource "aws_autoscaling_group" "main" {
-  name                      = "${var.project_name}-asg"
-  vpc_zone_identifier       = [for subnet in aws_subnet.private : subnet.id]
-  desired_capacity          = 1
-  max_size                  = 3
-  min_size                  = 1
-  target_group_arns         = [aws_lb_target_group.app.arn]
+  name                        = "${var.project_name}-asg"
+  vpc_zone_identifier         = [for subnet in aws_subnet.private : subnet.id]
+  desired_capacity            = 1
+  max_size                    = 3
+  min_size                    = 1
+  target_group_arns           = [aws_lb_target_group.app.arn]
   launch_template {
     id      = aws_launch_template.main.id
     version = "$Latest"
   }
   tag {
-    key             = "Name"
-    value           = "${var.project_name}-instance"
+    key                 = "Name"
+    value               = "${var.project_name}-instance"
     propagate_at_launch = true
   }
   tag {
-    key             = "Environment"
-    value           = "production"
+    key                 = "Environment"
+    value               = "production"
     propagate_at_launch = true
   }
   tag {
-    key             = "codedeploy-group"
-    value           = "${var.project_name}-group"
+    key                 = "codedeploy-group"
+    value               = "${var.project_name}-group"
     propagate_at_launch = true
   }
 }
@@ -441,12 +459,12 @@ resource "aws_codepipeline" "main" {
   stage {
     name = "Build"
     action {
-      name            = "Build"
-      category        = "Build"
-      owner           = "AWS"
-      provider        = "CodeBuild"
-      version         = "1"
-      input_artifacts = ["SourceArtifact"]
+      name             = "Build"
+      category         = "Build"
+      owner            = "AWS"
+      provider         = "CodeBuild"
+      version          = "1"
+      input_artifacts  = ["SourceArtifact"]
       output_artifacts = ["BuildArtifact"]
 
       configuration = {
@@ -494,7 +512,7 @@ resource "aws_codebuild_project" "main" {
   }
 
   source {
-    type = "CODEPIPELINE"
+    type      = "CODEPIPELINE"
     buildspec = "buildspec.yml"
   }
 

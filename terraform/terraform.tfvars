@@ -1,4 +1,5 @@
-github_connection_arn = "arn:aws:codeconnections:us-east-1:058264310461:connection/341cda91-1288-46a8-bd13-ad39c15d5861"
+# IMPORTANT: The ARN for a CodeStar Connection is region-specific. 
+# You will need to create a new CodeStar connection in us-west-2 and update this value.
+github_connection_arn = "arn:aws:codeconnections:us-west-2:058264310461:connection/a46e6721-0e14-490e-9ba8-e2e7d5a1f478" 
 github_owner          = "Vishwasoratur"
 github_repo_name      = "AutoRABIT-Terraform-and-CICD-Project"
-ami_id                = "ami-020cba7c55df1f615"

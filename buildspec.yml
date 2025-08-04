@@ -10,7 +10,8 @@ phases:
       - echo "Authenticating with ECR successful."
       - echo "Updating terraform state with S3 backend configuration..."
       - cd terraform
-      - terraform init -backend-config="bucket=vishwa-devops-project-terraform-state-2025" -backend-config="key=devops-project/terraform.tfstate" -backend-config="region=$REGION" -backend-config="dynamodb_table=vishwa-devops-project-terraform-locks"
+      # CORRECTED: The bucket name has been updated to reflect the new region.
+      - terraform init -backend-config="bucket=vishwa-devops-project-terraform-state-2025-us-west-2" -backend-config="key=devops-project/terraform.tfstate" -backend-config="region=$REGION" -backend-config="dynamodb_table=vishwa-devops-project-terraform-locks"
       - echo "Terraform initialized."
 
   build:
@@ -27,7 +28,9 @@ phases:
       - docker push $ECR_REPO_URI:$CODEBUILD_RESOLVED_SOURCE_VERSION
       - echo "Docker images pushed to ECR."
       - echo "Running Terraform to update infrastructure (if needed)..."
-      - terraform apply -auto-approve -var="github_owner=Vishwasoratur" -var="github_repo_name=AutoRABIT-Terraform-and-CICD-Project" -var="github_connection_arn=arn:aws:codeconnections:us-east-1:058264310461:connection/341cda91-1288-46a8-bd13-ad39c15d5861"
+      # CORRECTED: The github_connection_arn must be the new one for us-west-2.
+      # You need to replace the placeholder below with the actual ARN from the AWS Console.
+      - terraform apply -auto-approve -var="github_owner=Vishwasoratur" -var="github_repo_name=AutoRABIT-Terraform-and-CICD-Project" -var="github_connection_arn=arn:aws:codeconnections:us-west-2:058264310461:connection/a46e6721-0e14-490e-9ba8-e2e7d5a1f478"
       - echo "Terraform applied."
 
 artifacts:

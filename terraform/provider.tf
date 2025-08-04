@@ -8,13 +8,13 @@ terraform {
 
   required_version = ">= 1.0.0"
 
-  # This backend configuration points to the resources created by the bootstrap
+  # UPDATED: This backend configuration points to the S3 bucket and DynamoDB table for us-west-2
   backend "s3" {
-    bucket         = "vishwa-devops-project-terraform-state-2025" # <-- UPDATE THIS to match your bucket name
+    bucket         = "vishwa-devops-project-terraform-state-2025-us-west-2" # <-- UPDATED to be unique and specific to the region
     key            = "devops-project/terraform.tfstate"
-    region         = "us-east-1"
+    region         = "us-west-2" # <-- CHANGED to us-west-2
     encrypt        = true
-    dynamodb_table = "vishwa-devops-project-terraform-locks" # <-- UPDATE THIS to match your table name
+    dynamodb_table = "vishwa-devops-project-terraform-locks" 
   }
 }
 

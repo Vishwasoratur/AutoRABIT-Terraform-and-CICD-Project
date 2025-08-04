@@ -1,7 +1,8 @@
 variable "aws_region" {
   description = "The AWS region for the backend resources."
   type        = string
-  default     = "us-east-1"
+  # CHANGED: The default region is now us-west-2
+  default     = "us-west-2"
 }
 
 variable "s3_bucket_name" {
