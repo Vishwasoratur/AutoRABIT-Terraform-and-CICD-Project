@@ -1,5 +1,6 @@
+# Define local variables for consistency
 locals {
-  availability_zones = ["us-east-1a", "us-east-1b"] # <-- REPLACE WITH YOUR DESIRED AZs
+  availability_zones = ["us-east-1a", "us-east-1b"]
   cidr_ranges = {
     public_0  = "10.0.0.0/24"
     public_1  = "10.0.1.0/24"
@@ -18,10 +19,10 @@ resource "aws_vpc" "main" {
 }
 
 resource "aws_subnet" "public" {
-  for_each                = toset(local.availability_zones)
-  vpc_id                  = aws_vpc.main.id
-  cidr_block              = local.cidr_ranges["public_${index(local.availability_zones, each.value)}"]
-  availability_zone       = each.value
+  for_each               = toset(local.availability_zones)
+  vpc_id                 = aws_vpc.main.id
+  cidr_block             = local.cidr_ranges["public_${index(local.availability_zones, each.value)}"]
+  availability_zone      = each.value
   map_public_ip_on_launch = true
   tags = {
     Name = "${var.project_name}-public-subnet-${each.value}"
@@ -29,10 +30,10 @@ resource "aws_subnet" "public" {
 }
 
 resource "aws_subnet" "private" {
-  for_each                = toset(local.availability_zones)
-  vpc_id                  = aws_vpc.main.id
-  cidr_block              = local.cidr_ranges["private_${index(local.availability_zones, each.value)}"]
-  availability_zone       = each.value
+  for_each               = toset(local.availability_zones)
+  vpc_id                 = aws_vpc.main.id
+  cidr_block             = local.cidr_ranges["private_${index(local.availability_zones, each.value)}"]
+  availability_zone      = each.value
   tags = {
     Name = "${var.project_name}-private-subnet-${each.value}"
   }
@@ -178,10 +179,10 @@ resource "aws_iam_instance_profile" "main" {
 }
 
 resource "aws_launch_template" "main" {
-  name_prefix            = "${var.project_name}-lt-"
-  image_id               = var.ami_id
-  instance_type          = "t2.micro"
-  key_name               = "demo-1" # <-- OPTIONAL: Update with your key pair name for SSH
+  name_prefix          = "${var.project_name}-lt-"
+  image_id             = var.ami_id
+  instance_type        = "t2.micro"
+  key_name             = "demo-1.pem"
   vpc_security_group_ids = [aws_security_group.ec2.id]
   iam_instance_profile {
     arn = aws_iam_instance_profile.main.arn
@@ -215,18 +216,18 @@ resource "aws_autoscaling_group" "main" {
     version = "$Latest"
   }
   tag {
-    key                 = "Name"
-    value               = "${var.project_name}-instance"
+    key             = "Name"
+    value           = "${var.project_name}-instance"
     propagate_at_launch = true
   }
   tag {
-    key                 = "Environment"
-    value               = "production"
+    key             = "Environment"
+    value           = "production"
     propagate_at_launch = true
   }
   tag {
-    key                 = "codedeploy-group"
-    value               = "${var.project_name}-group"
+    key             = "codedeploy-group"
+    value           = "${var.project_name}-group"
     propagate_at_launch = true
   }
 }
@@ -389,5 +390,98 @@ resource "aws_codedeploy_deployment_group" "main" {
     target_group_info {
       name = aws_lb_target_group.app.name
     }
+  }
+}
+
+# --- CodePipeline and CodeBuild ---
+resource "aws_codepipeline" "main" {
+  name     = "${var.project_name}-pipeline"
+  role_arn = aws_iam_role.codepipeline.arn
+
+  artifact_store {
+    location = aws_s3_bucket.codepipeline_artifacts.id
+    type     = "S3"
+  }
+
+  stage {
+    name = "Source"
+    action {
+      name             = "Source"
+      category         = "Source"
+      owner            = "AWS"
+      provider         = "CodeStarSourceConnection"
+      version          = "1"
+      output_artifacts = ["SourceArtifact"]
+
+      configuration = {
+        ConnectionArn    = var.github_connection_arn
+        FullRepositoryId = "${var.github_owner}/${var.github_repo_name}"
+        BranchName       = var.github_branch
+      }
+    }
+  }
+
+  stage {
+    name = "Build"
+    action {
+      name            = "Build"
+      category        = "Build"
+      owner           = "AWS"
+      provider        = "CodeBuild"
+      version         = "1"
+      input_artifacts = ["SourceArtifact"]
+      output_artifacts = ["BuildArtifact"]
+
+      configuration = {
+        ProjectName = aws_codebuild_project.main.name
+      }
+    }
+  }
+
+  stage {
+    name = "Deploy"
+    action {
+      name             = "Deploy"
+      category         = "Deploy"
+      owner            = "AWS"
+      provider         = "CodeDeploy"
+      version          = "1"
+      input_artifacts = ["BuildArtifact"]
+
+      configuration = {
+        ApplicationName     = aws_codedeploy_app.main.name
+        DeploymentGroupName = aws_codedeploy_deployment_group.main.deployment_group_name
+      }
+    }
+  }
+}
+
+resource "aws_codebuild_project" "main" {
+  name          = "${var.project_name}-build"
+  description   = "CodeBuild project for the DevOps project"
+  service_role  = aws_iam_role.codebuild.arn
+
+  artifacts {
+    type = "CODEPIPELINE"
+  }
+
+  environment {
+    compute_type = "BUILD_GENERAL1_SMALL"
+    type         = "LINUX_CONTAINER"
+    image        = "aws/codebuild/standard:5.0"
+    privileged_mode = true
+    environment_variable {
+        name  = "DOCKER_REPOSITORY_URI"
+        value = aws_ecr_repository.app_repo.repository_url
+    }
+  }
+
+  source {
+    type = "CODEPIPELINE"
+    buildspec = "buildspec.yml"
+  }
+
+  tags = {
+    Name = "${var.project_name}-codebuild"
   }
 }
