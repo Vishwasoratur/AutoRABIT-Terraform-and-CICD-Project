@@ -1,0 +1,55 @@
+# Terraform files
+# -----------------
+# The .terraform directory stores providers, modules, and other plugins.
+.terraform/
+.terraform.lock.hcl
+
+# Terraform state files - CRITICAL!
+# The *.tfstate file contains a snapshot of your infrastructure and can include secrets.
+# You are using a remote backend (S3), so your local state file should NEVER be committed.
+*.tfstate
+*.tfstate.*
+
+# Terraform plan files
+*.tfplan
+
+# Local sensitive variables
+# If you created a terraform.tfvars, it might contain sensitive info.
+# Your CI/CD process should handle variables from other sources.
+# Your terraform/terraform.tfvars file is fine to commit for this project since it's only placeholder information,
+# but it's a good practice to be aware of this.
+# For example:
+# terraform.tfvars
+
+# Backup files
+*.tf~
+*.tf.backup
+
+
+# IDE and OS files
+# -----------------
+# VS Code
+.vscode/
+
+# IntelliJ / PyCharm
+.idea/
+
+# macOS files
+.DS_Store
+
+# Windows files
+thumbs.db
+
+
+# Python files
+# -----------------
+# Python virtual environments
+venv/
+.venv/
+
+# Compiled Python files
+__pycache__/
+*.pyc
+
+# Local dependencies
+pip-selfcheck.json
