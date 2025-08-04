@@ -181,7 +181,7 @@ resource "aws_launch_template" "main" {
   name_prefix            = "${var.project_name}-lt-"
   image_id               = var.ami_id
   instance_type          = "t2.micro"
-  key_name               = "autorabit.pem" # <-- OPTIONAL: Update with your key pair name for SSH
+  key_name               = "demo-1" # <-- OPTIONAL: Update with your key pair name for SSH
   vpc_security_group_ids = [aws_security_group.ec2.id]
   iam_instance_profile {
     arn = aws_iam_instance_profile.main.arn
@@ -212,7 +212,7 @@ resource "aws_autoscaling_group" "main" {
   target_group_arns         = [aws_lb_target_group.app.arn]
   launch_template {
     id      = aws_launch_template.main.id
-    version = "$$Latest"
+    version = "$Latest"
   }
   tag {
     key                 = "Name"
@@ -245,11 +245,6 @@ resource "aws_s3_bucket" "codepipeline_artifacts" {
   tags = {
     Name = "${var.project_name}-artifacts"
   }
-}
-
-resource "aws_s3_bucket_acl" "codepipeline_artifacts_acl" {
-  bucket = aws_s3_bucket.codepipeline_artifacts.id
-  acl    = "private"
 }
 
 # --- IAM Roles for CodePipeline and CodeBuild ---
