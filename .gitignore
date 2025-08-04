@@ -1,24 +1,20 @@
 # Terraform files
 # -----------------
 # The .terraform directory stores providers, modules, and other plugins.
-Terraform-backend/terraform.lock.hcl
 .terraform/
 .terraform.lock.hcl
+Terraform-backend/.terraform/
+Terraform-backend/.terraform.lock.hcl
 
 # Terraform state files - CRITICAL!
 # These files contain a snapshot of your infrastructure and can include secrets.
 # You are using a remote S3 backend, so these should NEVER be committed.
-Terraform-backend/terraform.tfstate
 *.tfstate
 *.tfstate.*
+Terraform-backend/terraform.tfstate
 
 # Terraform plan files
 *.tfplan
-
-# Local sensitive variables
-# Your CI/CD process should handle variables from other sources.
-# To prevent accidentally committing sensitive data
-# terraform.tfvars
 
 # Backup files
 *.tf~
