@@ -27,7 +27,7 @@ data "aws_ami" "amazon_linux_2" {
 
 # --- VPC and Networking ---
 resource "aws_vpc" "main" {
-  cidr_block           = "10.0.0.0/16"
+  cidr_block          = "10.0.0.0/16"
   enable_dns_hostnames = true
   tags = {
     Name = "${var.project_name}-vpc"
@@ -77,6 +77,43 @@ resource "aws_route_table_association" "public" {
   for_each       = aws_subnet.public
   subnet_id      = each.value.id
   route_table_id = aws_route_table.public.id
+}
+
+# NEW: NAT Gateway and Private Route Table
+# This is required to give your EC2 instances in private subnets internet access for updates and downloading the CodeDeploy agent.
+resource "aws_eip" "nat_gateway" {
+  tags = {
+    Name = "${var.project_name}-nat-eip"
+  }
+}
+
+resource "aws_nat_gateway" "main" {
+  allocation_id = aws_eip.nat_gateway.id
+  subnet_id     = tolist(aws_subnet.public)[0].id
+  tags = {
+    Name = "${var.project_name}-nat-gateway"
+  }
+  # Ensures NAT Gateway is created after the public route table
+  depends_on = [aws_route_table_association.public]
+}
+
+resource "aws_route_table" "private" {
+  vpc_id = aws_vpc.main.id
+  tags = {
+    Name = "${var.project_name}-private-rt"
+  }
+}
+
+resource "aws_route" "private_nat_gateway" {
+  route_table_id         = aws_route_table.private.id
+  destination_cidr_block = "0.0.0.0/0"
+  nat_gateway_id         = aws_nat_gateway.main.id
+}
+
+resource "aws_route_table_association" "private" {
+  for_each       = aws_subnet.private
+  subnet_id      = each.value.id
+  route_table_id = aws_route_table.private.id
 }
 
 # --- Application Load Balancer ---
@@ -195,11 +232,11 @@ resource "aws_iam_instance_profile" "main" {
 }
 
 resource "aws_launch_template" "main" {
-  name_prefix            = "${var.project_name}-lt-"
-  image_id               = data.aws_ami.amazon_linux_2.id
-  instance_type          = "t2.micro"
+  name_prefix          = "${var.project_name}-lt-"
+  image_id             = data.aws_ami.amazon_linux_2.id
+  instance_type        = "t2.micro"
   # IMPORTANT: This key pair must exist in the us-west-2 region.
-  key_name               = "sandy" 
+  key_name             = "sandy"
   vpc_security_group_ids = [aws_security_group.ec2.id]
   iam_instance_profile {
     arn = aws_iam_instance_profile.main.arn
@@ -223,12 +260,12 @@ EOF
 }
 
 resource "aws_autoscaling_group" "main" {
-  name                        = "${var.project_name}-asg"
-  vpc_zone_identifier         = [for subnet in aws_subnet.private : subnet.id]
-  desired_capacity            = 1
-  max_size                    = 3
-  min_size                    = 1
-  target_group_arns           = [aws_lb_target_group.app.arn]
+  name                 = "${var.project_name}-asg"
+  vpc_zone_identifier  = [for subnet in aws_subnet.private : subnet.id]
+  desired_capacity     = 1
+  max_size             = 3
+  min_size             = 1
+  target_group_arns    = [aws_lb_target_group.app.arn]
   launch_template {
     id      = aws_launch_template.main.id
     version = "$Latest"
@@ -340,6 +377,7 @@ resource "aws_iam_role" "codebuild" {
   })
 }
 
+# UPDATED: CodeBuild policy now includes DynamoDB and CodeDeploy permissions
 resource "aws_iam_role_policy" "codebuild_policy" {
   name = "${var.project_name}-codebuild-policy"
   role = aws_iam_role.codebuild.id
@@ -347,6 +385,7 @@ resource "aws_iam_role_policy" "codebuild_policy" {
     Version = "2012-10-17"
     Statement = [
       {
+        Effect = "Allow"
         Action = [
           "logs:CreateLogGroup",
           "logs:CreateLogStream",
@@ -366,8 +405,13 @@ resource "aws_iam_role_policy" "codebuild_policy" {
           "ecr:PutImage",
           "iam:PassRole",
           "ssm:*",
+          # ADDED: DynamoDB permissions for Terraform state locking
+          "dynamodb:GetItem",
+          "dynamodb:PutItem",
+          "dynamodb:DeleteItem",
+          # ADDED: This is required for CodeDeploy's lifecycle hooks
+          "codedeploy:PutLifecycleEventHookExecutionStatus",
         ]
-        Effect   = "Allow"
         Resource = "*"
       },
     ]
@@ -396,8 +440,8 @@ resource "aws_iam_role" "codedeploy" {
 }
 
 resource "aws_iam_role_policy_attachment" "codedeploy_attachment" {
-  role       = aws_iam_role.codedeploy.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSCodeDeployRole"
+  role         = aws_iam_role.codedeploy.name
+  policy_arn   = "arn:aws:iam::aws:policy/service-role/AWSCodeDeployRole"
 }
 
 resource "aws_codedeploy_deployment_group" "main" {
@@ -476,11 +520,11 @@ resource "aws_codepipeline" "main" {
   stage {
     name = "Deploy"
     action {
-      name             = "Deploy"
-      category         = "Deploy"
-      owner            = "AWS"
-      provider         = "CodeDeploy"
-      version          = "1"
+      name            = "Deploy"
+      category        = "Deploy"
+      owner           = "AWS"
+      provider        = "CodeDeploy"
+      version         = "1"
       input_artifacts = ["BuildArtifact"]
 
       configuration = {
@@ -492,9 +536,9 @@ resource "aws_codepipeline" "main" {
 }
 
 resource "aws_codebuild_project" "main" {
-  name          = "${var.project_name}-build"
-  description   = "CodeBuild project for the DevOps project"
-  service_role  = aws_iam_role.codebuild.arn
+  name        = "${var.project_name}-build"
+  description = "CodeBuild project for the DevOps project"
+  service_role = aws_iam_role.codebuild.arn
 
   artifacts {
     type = "CODEPIPELINE"
