@@ -10,10 +10,11 @@ phases:
       - timeout 15 sh -c "until docker info; do echo .; sleep 1; done"
       - echo "Docker daemon is running."
       
-      # ADDED: Download and install Terraform
+      # Corrected: Download and install Terraform
       - echo "Installing Terraform..."
       - curl -o terraform.zip https://releases.hashicorp.com/terraform/1.7.0/terraform_1.7.0_linux_amd64.zip
-      - unzip terraform.zip
+      # ADDED -o flag to overwrite without prompting
+      - unzip -o terraform.zip
       - mv terraform /usr/local/bin/
       - rm terraform.zip
       - terraform --version
