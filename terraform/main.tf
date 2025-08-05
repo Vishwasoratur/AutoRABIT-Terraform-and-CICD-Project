@@ -533,28 +533,3 @@ resource "aws_codebuild_project" "main" {
     Name = "${var.project_name}-codebuild"
   }
 }
-
-variable "project_name" {
-  type = string
-}
-
-variable "aws_region" {
-  type = string
-}
-
-variable "github_owner" {
-  type = string
-}
-
-variable "github_repo_name" {
-  type = string
-}
-
-variable "github_branch" {
-  type    = string
-  default = "main"
-}
-
-variable "github_connection_arn" {
-  type = string
-}
