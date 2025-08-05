@@ -297,6 +297,8 @@ resource "aws_iam_role_policy" "codepipeline" {
           "ecr:BatchCheckLayerAvailability",
           "codebuild:StartBuild",
           "codebuild:StopBuild",
+          # CORRECTED: Add this missing permission
+          "codebuild:BatchGetBuilds",
           "codedeploy:*",
           "iam:PassRole",
         ]
