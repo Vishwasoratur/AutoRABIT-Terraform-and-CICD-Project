@@ -1,6 +1,6 @@
 # Define local variables for consistency
 locals {
-  # CHANGED: Availability Zones for us-west-2
+  # Availability Zones for us-west-2
   availability_zones = ["us-west-2a", "us-west-2b"]
   cidr_ranges = {
     public_0  = "10.0.0.0/24"
@@ -35,10 +35,10 @@ resource "aws_vpc" "main" {
 }
 
 resource "aws_subnet" "public" {
-  for_each                = toset(local.availability_zones)
-  vpc_id                  = aws_vpc.main.id
-  cidr_block              = local.cidr_ranges["public_${index(local.availability_zones, each.value)}"]
-  availability_zone       = each.value
+  for_each          = toset(local.availability_zones)
+  vpc_id            = aws_vpc.main.id
+  cidr_block        = local.cidr_ranges["public_${index(local.availability_zones, each.value)}"]
+  availability_zone = each.value
   map_public_ip_on_launch = true
   tags = {
     Name = "${var.project_name}-public-subnet-${each.value}"
@@ -46,10 +46,10 @@ resource "aws_subnet" "public" {
 }
 
 resource "aws_subnet" "private" {
-  for_each                = toset(local.availability_zones)
-  vpc_id                  = aws_vpc.main.id
-  cidr_block              = local.cidr_ranges["private_${index(local.availability_zones, each.value)}"]
-  availability_zone       = each.value
+  for_each          = toset(local.availability_zones)
+  vpc_id            = aws_vpc.main.id
+  cidr_block        = local.cidr_ranges["private_${index(local.availability_zones, each.value)}"]
+  availability_zone = each.value
   tags = {
     Name = "${var.project_name}-private-subnet-${each.value}"
   }
@@ -79,8 +79,6 @@ resource "aws_route_table_association" "public" {
   route_table_id = aws_route_table.public.id
 }
 
-# NEW: NAT Gateway and Private Route Table
-# This is required to give your EC2 instances in private subnets internet access for updates and downloading the CodeDeploy agent.
 resource "aws_eip" "nat_gateway" {
   tags = {
     Name = "${var.project_name}-nat-eip"
@@ -93,7 +91,6 @@ resource "aws_nat_gateway" "main" {
   tags = {
     Name = "${var.project_name}-nat-gateway"
   }
-  # Ensures NAT Gateway is created after the public route table
   depends_on = [aws_route_table_association.public]
 }
 
@@ -105,9 +102,9 @@ resource "aws_route_table" "private" {
 }
 
 resource "aws_route" "private_nat_gateway" {
-  route_table_id         = aws_route_table.private.id
+  route_table_id        = aws_route_table.private.id
   destination_cidr_block = "0.0.0.0/0"
-  nat_gateway_id         = aws_nat_gateway.main.id
+  nat_gateway_id        = aws_nat_gateway.main.id
 }
 
 resource "aws_route_table_association" "private" {
@@ -135,11 +132,11 @@ resource "aws_security_group" "alb" {
 }
 
 resource "aws_lb" "main" {
-  name                = "${var.project_name}-alb"
-  internal            = false
-  load_balancer_type  = "application"
-  security_groups     = [aws_security_group.alb.id]
-  subnets             = [for subnet in aws_subnet.public : subnet.id]
+  name              = "${var.project_name}-alb"
+  internal          = false
+  load_balancer_type = "application"
+  security_groups   = [aws_security_group.alb.id]
+  subnets           = [for subnet in aws_subnet.public : subnet.id]
 }
 
 resource "aws_lb_target_group" "app" {
@@ -217,13 +214,19 @@ resource "aws_iam_role_policy" "ec2_instance_policy" {
           "ecr:BatchCheckLayerAvailability",
           "ecr:GetAuthorizationToken",
           "codedeploy:PutLifecycleEventHookExecutionStatus",
-          "ssm:GetParameters",
-        ]
+          "s3:GetObject",
+          "s3:ListBucket",
+        ],
         Effect   = "Allow"
         Resource = "*"
       },
     ]
   })
+}
+
+resource "aws_iam_role_policy_attachment" "ssm_policy_attachment" {
+  role       = aws_iam_role.ec2_instance_profile.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
 }
 
 resource "aws_iam_instance_profile" "main" {
@@ -235,7 +238,6 @@ resource "aws_launch_template" "main" {
   name_prefix          = "${var.project_name}-lt-"
   image_id             = data.aws_ami.amazon_linux_2.id
   instance_type        = "t2.micro"
-  # IMPORTANT: This key pair must exist in the us-west-2 region.
   key_name             = "sandy"
   vpc_security_group_ids = [aws_security_group.ec2.id]
   iam_instance_profile {
@@ -244,17 +246,18 @@ resource "aws_launch_template" "main" {
   user_data = base64encode(<<-EOF
 #!/bin/bash
 sudo yum update -y
-sudo yum install -y ruby
-sudo yum install -y wget
+sudo yum install -y ruby wget
 cd /home/ec2-user
-# CHANGED: Using var.aws_region to make the CodeDeploy URL dynamic
 wget https://aws-codedeploy-${var.aws_region}.s3.${var.aws_region}.amazonaws.com/latest/install
 chmod +x ./install
 sudo ./install auto
-sudo service codedeploy-agent status
+
 sudo yum install -y docker
 sudo service docker start
 sudo usermod -a -G docker ec2-user
+
+sudo service codedeploy-agent start
+sudo chkconfig codedeploy-agent on
 EOF
   )
 }
@@ -334,10 +337,10 @@ resource "aws_iam_role_policy" "codepipeline" {
           "ecr:BatchCheckLayerAvailability",
           "codebuild:StartBuild",
           "codebuild:StopBuild",
-          "codebuild:BatchGetBuilds", // <-- Add this line
+          "codebuild:BatchGetBuilds",
           "codedeploy:*",
           "iam:PassRole",
-        ]
+        ],
         Effect   = "Allow"
         Resource = "*"
       },
@@ -354,7 +357,7 @@ resource "aws_iam_role_policy" "codepipeline_connections_policy" {
         Effect = "Allow"
         Action = [
           "codestar-connections:UseConnection",
-        ]
+        ],
         Resource = var.github_connection_arn
       },
     ]
@@ -458,14 +461,17 @@ resource "aws_iam_role" "codedeploy" {
 }
 
 resource "aws_iam_role_policy_attachment" "codedeploy_attachment" {
-  role         = aws_iam_role.codedeploy.name
-  policy_arn   = "arn:aws:iam::aws:policy/service-role/AWSCodeDeployRole"
+  role          = aws_iam_role.codedeploy.name
+  policy_arn    = "arn:aws:iam::aws:policy/service-role/AWSCodeDeployRole"
 }
 
+# CORRECTED: Changed to a simpler In-Place deployment type
 resource "aws_codedeploy_deployment_group" "main" {
   app_name              = aws_codedeploy_app.main.name
   deployment_group_name = "${var.project_name}-group"
   service_role_arn      = aws_iam_role.codedeploy.arn
+  
+  deployment_config_name = "CodeDeployDefault.OneAtATime"
 
   ec2_tag_set {
     ec2_tag_filter {
@@ -475,7 +481,7 @@ resource "aws_codedeploy_deployment_group" "main" {
     }
   }
   deployment_style {
-    deployment_option = "WITH_TRAFFIC_CONTROL"
+    deployment_option = "IN_PLACE"
     deployment_type   = "BLUE_GREEN"
   }
   auto_rollback_configuration {
@@ -483,17 +489,12 @@ resource "aws_codedeploy_deployment_group" "main" {
     events  = ["DEPLOYMENT_FAILURE"]
   }
   autoscaling_groups = [aws_autoscaling_group.main.name]
-  load_balancer_info {
-    target_group_info {
-      name = aws_lb_target_group.app.name
-    }
-  }
 }
 
 # --- CodePipeline and CodeBuild ---
 resource "aws_codepipeline" "main" {
-  name     = "${var.project_name}-pipeline"
-  role_arn = aws_iam_role.codepipeline.arn
+  name      = "${var.project_name}-pipeline"
+  role_arn  = aws_iam_role.codepipeline.arn
 
   artifact_store {
     location = aws_s3_bucket.codepipeline_artifacts.id
@@ -503,11 +504,11 @@ resource "aws_codepipeline" "main" {
   stage {
     name = "Source"
     action {
-      name             = "Source"
-      category         = "Source"
-      owner            = "AWS"
-      provider         = "CodeStarSourceConnection"
-      version          = "1"
+      name          = "Source"
+      category      = "Source"
+      owner         = "AWS"
+      provider      = "CodeStarSourceConnection"
+      version       = "1"
       output_artifacts = ["SourceArtifact"]
 
       configuration = {
@@ -521,11 +522,11 @@ resource "aws_codepipeline" "main" {
   stage {
     name = "Build"
     action {
-      name             = "Build"
-      category         = "Build"
-      owner            = "AWS"
-      provider         = "CodeBuild"
-      version          = "1"
+      name          = "Build"
+      category      = "Build"
+      owner         = "AWS"
+      provider      = "CodeBuild"
+      version       = "1"
       input_artifacts  = ["SourceArtifact"]
       output_artifacts = ["BuildArtifact"]
 
@@ -538,11 +539,11 @@ resource "aws_codepipeline" "main" {
   stage {
     name = "Deploy"
     action {
-      name            = "Deploy"
-      category        = "Deploy"
-      owner           = "AWS"
-      provider        = "CodeDeploy"
-      version         = "1"
+      name          = "Deploy"
+      category      = "Deploy"
+      owner         = "AWS"
+      provider      = "CodeDeploy"
+      version       = "1"
       input_artifacts = ["BuildArtifact"]
 
       configuration = {
