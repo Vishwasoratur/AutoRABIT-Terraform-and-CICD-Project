@@ -318,37 +318,44 @@ resource "aws_iam_role" "codepipeline" {
 }
 
 resource "aws_iam_role_policy" "codebuild_policy" {
-  role   = aws_iam_role.codebuild.name
+  role   = aws_iam_role.codebuild.id
   name   = "devops-project-codebuild-policy"
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
       {
+        Effect = "Allow"
         Action = [
           "ecr:GetAuthorizationToken",
           "ecr:BatchCheckLayerAvailability",
           "ecr:GetDownloadUrlForLayer",
           "ecr:BatchGetImage",
-          "ecr:DescribeImages",
+          "ecr:InitiateLayerUpload",
+          "ecr:UploadLayerPart",
+          "ecr:CompleteLayerUpload",
+          "ecr:PutImage",
+          "logs:CreateLogGroup",
+          "logs:CreateLogStream",
+          "logs:PutLogEvents",
           "s3:GetObject",
+          "s3:PutObject",
           "s3:GetBucketAcl",
           "s3:GetBucketLocation",
-          "s3:PutObject",
+          "s3:ListBucket",
           "codedeploy:CreateDeployment",
           "codedeploy:GetDeployment",
           "codedeploy:GetDeploymentConfig",
           "codedeploy:RegisterApplicationRevision",
           "codedeploy:UpdateDeploymentGroup",
-          "ec2:AllocateAddress",
           "ec2:DescribeAddresses",
           "iam:PassRole"
         ]
-        Effect = "Allow"
         Resource = "*"
       },
     ]
   })
 }
+
 
 resource "aws_iam_role_policy" "codepipeline_connections_policy" {
   name = "${var.project_name}-codepipeline-connections-policy"
