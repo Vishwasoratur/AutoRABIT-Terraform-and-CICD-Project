@@ -27,7 +27,7 @@ data "aws_ami" "amazon_linux_2" {
 
 # --- VPC and Networking ---
 resource "aws_vpc" "main" {
-  cidr_block         = "10.0.0.0/16"
+  cidr_block           = "10.0.0.0/16"
   enable_dns_hostnames = true
   tags = {
     Name = "${var.project_name}-vpc"
@@ -37,8 +37,8 @@ resource "aws_vpc" "main" {
 resource "aws_subnet" "public" {
   for_each          = toset(local.availability_zones)
   vpc_id            = aws_vpc.main.id
-  cidr_block          = local.cidr_ranges["public_${index(local.availability_zones, each.value)}"]
-  availability_zone   = each.value
+  cidr_block        = local.cidr_ranges["public_${index(local.availability_zones, each.value)}"]
+  availability_zone = each.value
   map_public_ip_on_launch = true
   tags = {
     Name = "${var.project_name}-public-subnet-${each.value}"
@@ -48,8 +48,8 @@ resource "aws_subnet" "public" {
 resource "aws_subnet" "private" {
   for_each          = toset(local.availability_zones)
   vpc_id            = aws_vpc.main.id
-  cidr_block          = local.cidr_ranges["private_${index(local.availability_zones, each.value)}"]
-  availability_zone   = each.value
+  cidr_block        = local.cidr_ranges["private_${index(local.availability_zones, each.value)}"]
+  availability_zone = each.value
   tags = {
     Name = "${var.project_name}-private-subnet-${each.value}"
   }
@@ -74,8 +74,8 @@ resource "aws_route_table" "public" {
 }
 
 resource "aws_route_table_association" "public" {
-  for_each        = aws_subnet.public
-  subnet_id       = each.value.id
+  for_each       = aws_subnet.public
+  subnet_id      = each.value.id
   route_table_id = aws_route_table.public.id
 }
 
@@ -100,7 +100,7 @@ resource "aws_security_group" "alb" {
 resource "aws_lb" "main" {
   name              = "${var.project_name}-alb"
   internal          = false
-  load_balancer_type  = "application"
+  load_balancer_type = "application"
   security_groups   = [aws_security_group.alb.id]
   subnets           = [for subnet in aws_subnet.public : subnet.id]
 }
@@ -252,7 +252,7 @@ resource "aws_autoscaling_group" "main" {
 
 # --- CI/CD Stack Resources ---
 resource "aws_ecr_repository" "app_repo" {
-  name              = "${var.project_name}-repo"
+  name                 = "${var.project_name}-repo"
   image_tag_mutability = "MUTABLE"
   tags = {
     Name = "${var.project_name}-ecr"
@@ -351,40 +351,6 @@ resource "aws_iam_role" "codebuild" {
   })
 }
 
-resource "aws_iam_role_policy" "codebuild_policy" {
-  name = "${var.project_name}-codebuild-policy"
-  role = aws_iam_role.codebuild.id
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Action = [
-          "logs:CreateLogGroup",
-          "logs:CreateLogStream",
-          "logs:PutLogEvents",
-          "s3:*",
-          "ecr:GetAuthorizationToken",
-          "ecr:BatchCheckLayerAvailability",
-          "ecr:GetDownloadUrlForLayer",
-          "ecr:GetRepositoryPolicy",
-          "ecr:DescribeRepositories",
-          "ecr:ListImages",
-          "ecr:DescribeImages",
-          "ecr:BatchGetImage",
-          "ecr:InitiateLayerUpload",
-          "ecr:UploadLayerPart",
-          "ecr:CompleteLayerUpload",
-          "ecr:PutImage",
-          "iam:PassRole",
-          "ssm:*",
-        ]
-        Effect   = "Allow"
-        Resource = "*"
-      },
-    ]
-  })
-}
-
 # --- CodeDeploy Application and Deployment Group ---
 resource "aws_codedeploy_app" "main" {
   name = "${var.project_name}-app"
@@ -407,8 +373,8 @@ resource "aws_iam_role" "codedeploy" {
 }
 
 resource "aws_iam_role_policy_attachment" "codedeploy_attachment" {
-  role         = aws_iam_role.codedeploy.name
-  policy_arn   = "arn:aws:iam::aws:policy/service-role/AWSCodeDeployRole"
+  role        = aws_iam_role.codedeploy.name
+  policy_arn  = "arn:aws:iam::aws:policy/service-role/AWSCodeDeployRole"
 }
 
 resource "aws_codedeploy_deployment_group" "main" {
@@ -468,11 +434,11 @@ resource "aws_codepipeline" "main" {
   stage {
     name = "Source"
     action {
-      name            = "Source"
-      category        = "Source"
-      owner           = "AWS"
-      provider        = "CodeStarSourceConnection"
-      version         = "1"
+      name             = "Source"
+      category         = "Source"
+      owner            = "AWS"
+      provider         = "CodeStarSourceConnection"
+      version          = "1"
       output_artifacts = ["SourceArtifact"]
 
       configuration = {
@@ -486,11 +452,11 @@ resource "aws_codepipeline" "main" {
   stage {
     name = "Build"
     action {
-      name            = "Build"
-      category        = "Build"
-      owner           = "AWS"
-      provider        = "CodeBuild"
-      version         = "1"
+      name             = "Build"
+      category         = "Build"
+      owner            = "AWS"
+      provider         = "CodeBuild"
+      version          = "1"
       input_artifacts  = ["SourceArtifact"]
       output_artifacts = ["BuildArtifact"]
 
@@ -503,15 +469,15 @@ resource "aws_codepipeline" "main" {
   stage {
     name = "Deploy"
     action {
-      name            = "Deploy"
-      category        = "Deploy"
-      owner           = "AWS"
-      provider        = "CodeDeploy"
-      version         = "1"
+      name             = "Deploy"
+      category         = "Deploy"
+      owner            = "AWS"
+      provider         = "CodeDeploy"
+      version          = "1"
       input_artifacts = ["BuildArtifact"]
 
       configuration = {
-        ApplicationName     = aws_codedeploy_app.main.name
+        ApplicationName   = aws_codedeploy_app.main.name
         DeploymentGroupName = aws_codedeploy_deployment_group.main.deployment_group_name
       }
     }
