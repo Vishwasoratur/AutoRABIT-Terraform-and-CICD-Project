@@ -344,6 +344,7 @@ resource "aws_iam_role_policy" "codebuild_policy" {
           "iam:PassRole",
           "ssm:*",
           "codedeploy:UpdateDeploymentGroup",
+          "ec2:AllocateAddress", // ADDED: Required to create the NAT Gateway's EIP
         ]
         Effect   = "Allow"
         Resource = "*"
