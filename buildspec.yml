@@ -13,9 +13,7 @@ phases:
       # Corrected: Download and install Terraform
       - echo "Installing Terraform..."
       - curl -o terraform.zip https://releases.hashicorp.com/terraform/1.7.0/terraform_1.7.0_linux_amd64.zip
-      # ADDED -d /tmp to extract to a temporary directory
       - unzip -o -d /tmp terraform.zip
-      # Move the executable from the temporary directory
       - mv /tmp/terraform /usr/local/bin/
       - rm terraform.zip
       - terraform --version
@@ -30,14 +28,15 @@ phases:
       - aws ecr get-login-password --region $REGION | docker login --username AWS --password-stdin $ECR_REPO_URI
       - echo "Authenticating with ECR successful."
       - echo "Updating terraform state with S3 backend configuration..."
-      - cd terraform
-      - terraform init -backend-config="bucket=vishwa-devops-project-terraform-state-2025-us-west-2" -backend-config="key=devops-project/terraform.tfstate" -backend-config="region=$REGION" -backend-config="dynamodb_table=vishwa-devops-project-terraform-locks"
+      # CORRECTED: Run terraform init from within the terraform directory without changing the overall working directory.
+      - cd terraform && terraform init -backend-config="bucket=vishwa-devops-project-terraform-state-2025-us-west-2" -backend-config="key=devops-project/terraform.tfstate" -backend-config="region=$REGION" -backend-config="dynamodb_table=vishwa-devops-project-terraform-locks"
       - echo "Terraform initialized."
 
   build:
     commands:
       - echo "Building the Docker image..."
-      - docker build -t $ECR_REPO_URI:latest ..
+      # CORRECTED: The `docker build` command is now run from the project root using a single dot.
+      - docker build -t $ECR_REPO_URI:latest .
       - docker tag $ECR_REPO_URI:latest $ECR_REPO_URI:$CODEBUILD_RESOLVED_SOURCE_VERSION
       - echo "Image built and tagged."
 
@@ -48,7 +47,8 @@ phases:
       - docker push $ECR_REPO_URI:$CODEBUILD_RESOLVED_SOURCE_VERSION
       - echo "Docker images pushed to ECR."
       - echo "Running Terraform to update infrastructure (if needed)..."
-      - terraform apply -auto-approve -var="github_owner=Vishwasoratur" -var="github_repo_name=AutoRABIT-Terraform-and-CICD-Project" -var="github_connection_arn=arn:aws:codeconnections:us-west-2:<YOUR_ACCOUNT_ID>:connection/<NEW_CONNECTION_ID>"
+      # CORRECTED: Run terraform apply from within the terraform directory.
+      - cd terraform && terraform apply -auto-approve -var="github_owner=Vishwasoratur" -var="github_repo_name=AutoRABIT-Terraform-and-CICD-Project" -var="github_connection_arn=arn:aws:codeconnections:us-west-2:<YOUR_ACCOUNT_ID>:connection/<NEW_CONNECTION_ID>"
       - echo "Terraform applied."
 
 artifacts:
