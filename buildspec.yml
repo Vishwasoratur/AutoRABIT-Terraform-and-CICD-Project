@@ -28,14 +28,14 @@ phases:
       - aws ecr get-login-password --region $REGION | docker login --username AWS --password-stdin $ECR_REPO_URI
       - echo "Authenticating with ECR successful."
       - echo "Updating terraform state with S3 backend configuration..."
-      # CORRECTED: Run terraform init from within the terraform directory without changing the overall working directory.
-      - cd terraform && terraform init -backend-config="bucket=vishwa-devops-project-terraform-state-2025-us-west-2" -backend-config="key=devops-project/terraform.tfstate" -backend-config="region=$REGION" -backend-config="dynamodb_table=vishwa-devops-project-terraform-locks"
+      # Use -chdir to run terraform init from within the terraform directory without changing the overall working directory.
+      - terraform -chdir=terraform init -backend-config="bucket=vishwa-devops-project-terraform-state-2025-us-west-2" -backend-config="key=devops-project/terraform.tfstate" -backend-config="region=$REGION" -backend-config="dynamodb_table=vishwa-devops-project-terraform-locks"
       - echo "Terraform initialized."
 
   build:
     commands:
       - echo "Building the Docker image..."
-      # CORRECTED: The `docker build` command is now run from the project root using a single dot.
+      # The `docker build` command runs from the project root, where your Dockerfile is located.
       - docker build -t $ECR_REPO_URI:latest .
       - docker tag $ECR_REPO_URI:latest $ECR_REPO_URI:$CODEBUILD_RESOLVED_SOURCE_VERSION
       - echo "Image built and tagged."
@@ -47,8 +47,8 @@ phases:
       - docker push $ECR_REPO_URI:$CODEBUILD_RESOLVED_SOURCE_VERSION
       - echo "Docker images pushed to ECR."
       - echo "Running Terraform to update infrastructure (if needed)..."
-      # CORRECTED: Run terraform apply from within the terraform directory.
-      - cd terraform && terraform apply -auto-approve -var="github_owner=Vishwasoratur" -var="github_repo_name=AutoRABIT-Terraform-and-CICD-Project" -var="github_connection_arn=arn:aws:codeconnections:us-west-2:<YOUR_ACCOUNT_ID>:connection/<NEW_CONNECTION_ID>"
+      # Use -chdir to run terraform apply from within the terraform directory.
+      - terraform -chdir=terraform apply -auto-approve -var="github_owner=Vishwasoratur" -var="github_repo_name=AutoRABIT-Terraform-and-CICD-Project" -var="github_connection_arn=arn:aws:codeconnections:us-west-2:<YOUR_ACCOUNT_ID>:connection/<NEW_CONNECTION_ID>"
       - echo "Terraform applied."
 
 artifacts:
