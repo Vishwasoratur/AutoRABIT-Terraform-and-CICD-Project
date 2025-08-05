@@ -293,6 +293,30 @@ resource "aws_ecr_repository" "app_repo" {
   }
 }
 
+resource "aws_iam_role_policy" "codepipeline_s3_access" {
+  name = "${var.project_name}-codepipeline-s3-access"
+  role = aws_iam_role.codepipeline.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:GetObject",
+          "s3:PutObject",
+          "s3:PutObjectAcl",
+          "s3:ListBucket"
+        ]
+        Resource = [
+          aws_s3_bucket.codepipeline_artifacts.arn,
+          "${aws_s3_bucket.codepipeline_artifacts.arn}/*",
+        ]
+      },
+    ]
+  })
+}
+
 resource "aws_s3_bucket" "codepipeline_artifacts" {
   bucket = "${var.project_name}-codepipeline-artifacts"
   tags = {
