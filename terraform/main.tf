@@ -89,7 +89,7 @@ resource "aws_eip" "nat_gateway" {
 
 resource "aws_nat_gateway" "main" {
   allocation_id = aws_eip.nat_gateway.id
-  subnet_id     = tolist(aws_subnet.public)[0].id
+  subnet_id = aws_subnet.public["us-west-2a"].id
   tags = {
     Name = "${var.project_name}-nat-gateway"
   }
@@ -377,7 +377,6 @@ resource "aws_iam_role" "codebuild" {
   })
 }
 
-# UPDATED: CodeBuild policy now includes DynamoDB and CodeDeploy permissions
 resource "aws_iam_role_policy" "codebuild_policy" {
   name = "${var.project_name}-codebuild-policy"
   role = aws_iam_role.codebuild.id
@@ -405,19 +404,20 @@ resource "aws_iam_role_policy" "codebuild_policy" {
           "ecr:PutImage",
           "iam:PassRole",
           "ssm:*",
-          # ADDED: DynamoDB permissions for Terraform state locking
           "dynamodb:GetItem",
           "dynamodb:PutItem",
           "dynamodb:DeleteItem",
-          # ADDED: This is required for CodeDeploy's lifecycle hooks
           "codedeploy:PutLifecycleEventHookExecutionStatus",
+          "ec2:Describe*",  # Added to allow description of EC2 resources
+          "iam:GetRole", # Added to allow reading IAM roles
+          "ecr:ListTagsForResource", # Added to allow reading ECR tags
+          "codedeploy:GetApplication", # Added to allow reading CodeDeploy app
         ]
         Resource = "*"
       },
     ]
   })
 }
-
 # --- CodeDeploy Application and Deployment Group ---
 resource "aws_codedeploy_app" "main" {
   name = "${var.project_name}-app"
