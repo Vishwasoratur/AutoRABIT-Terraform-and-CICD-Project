@@ -318,35 +318,32 @@ resource "aws_iam_role" "codepipeline" {
 }
 
 resource "aws_iam_role_policy" "codebuild_policy" {
-  name = "${var.project_name}-codebuild-policy"
-  role = aws_iam_role.codebuild.id
+  role   = aws_iam_role.codebuild.name
+  name   = "devops-project-codebuild-policy"
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
       {
         Action = [
-          "logs:CreateLogGroup",
-          "logs:CreateLogStream",
-          "logs:PutLogEvents",
-          "s3:*",
           "ecr:GetAuthorizationToken",
           "ecr:BatchCheckLayerAvailability",
           "ecr:GetDownloadUrlForLayer",
-          "ecr:GetRepositoryPolicy",
-          "ecr:DescribeRepositories",
-          "ecr:ListImages",
-          "ecr:DescribeImages",
           "ecr:BatchGetImage",
-          "ecr:InitiateLayerUpload",
-          "ecr:UploadLayerPart",
-          "ecr:CompleteLayerUpload",
-          "ecr:PutImage",
-          "iam:PassRole",
-          "ssm:*",
+          "ecr:DescribeImages",
+          "s3:GetObject",
+          "s3:GetBucketAcl",
+          "s3:GetBucketLocation",
+          "s3:PutObject",
+          "codedeploy:CreateDeployment",
+          "codedeploy:GetDeployment",
+          "codedeploy:GetDeploymentConfig",
+          "codedeploy:RegisterApplicationRevision",
           "codedeploy:UpdateDeploymentGroup",
-          "ec2:AllocateAddress", // ADDED: Required to create the NAT Gateway's EIP
+          "ec2:AllocateAddress",
+          "ec2:DescribeAddresses",
+          "iam:PassRole"
         ]
-        Effect   = "Allow"
+        Effect = "Allow"
         Resource = "*"
       },
     ]
