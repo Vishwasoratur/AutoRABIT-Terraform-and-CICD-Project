@@ -229,11 +229,11 @@ resource "aws_iam_instance_profile" "main" {
 }
 
 resource "aws_launch_template" "main" {
-  name_prefix         = "${var.project_name}-lt-"
-  image_id            = data.aws_ami.amazon_linux_2.id
-  instance_type       = "t2.micro"
+  name_prefix       = "${var.project_name}-lt-"
+  image_id          = data.aws_ami.amazon_linux_2.id
+  instance_type     = "t2.micro"
   # IMPORTANT: This key pair must exist in the us-west-2 region.
-  key_name            = "sandy"
+  key_name          = "sandy"
   vpc_security_group_ids = [aws_security_group.ec2.id]
   iam_instance_profile {
     arn = aws_iam_instance_profile.main.arn
@@ -286,13 +286,38 @@ resource "aws_autoscaling_group" "main" {
 
 # --- CI/CD Stack Resources ---
 resource "aws_ecr_repository" "app_repo" {
-  name                = "${var.project_name}-repo"
+  name              = "${var.project_name}-repo"
   image_tag_mutability = "MUTABLE"
   tags = {
     Name = "${var.project_name}-ecr"
   }
 }
 
+resource "aws_s3_bucket" "codepipeline_artifacts" {
+  bucket = "${var.project_name}-codepipeline-artifacts"
+  tags = {
+    Name = "${var.project_name}-artifacts"
+  }
+}
+
+# --- IAM Roles for CodePipeline, CodeBuild, and CodeDeploy ---
+resource "aws_iam_role" "codepipeline" {
+  name = "${var.project_name}-codepipeline-role"
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "codepipeline.amazonaws.com"
+        }
+      },
+    ]
+  })
+}
+
+# This policy grants the CodePipeline role permissions to access the S3 artifact bucket.
 resource "aws_iam_role_policy" "codepipeline_s3_access" {
   name = "${var.project_name}-codepipeline-s3-access"
   role = aws_iam_role.codepipeline.id
@@ -316,16 +341,26 @@ resource "aws_iam_role_policy" "codepipeline_s3_access" {
     ]
   })
 }
-resource "aws_s3_bucket" "codepipeline_artifacts" {
-  bucket = "${var.project_name}-codepipeline-artifacts"
-  tags = {
-    Name = "${var.project_name}-artifacts"
-  }
+
+resource "aws_iam_role_policy" "codepipeline_connections_policy" {
+  name = "${var.project_name}-codepipeline-connections-policy"
+  role = aws_iam_role.codepipeline.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "codestar-connections:UseConnection",
+        ]
+        Resource = var.github_connection_arn
+      },
+    ]
+  })
 }
 
-# --- IAM Roles for CodePipeline and CodeBuild ---
-resource "aws_iam_role" "codepipeline" {
-  name = "${var.project_name}-codepipeline-role"
+resource "aws_iam_role" "codebuild" {
+  name = "${var.project_name}-codebuild-role"
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -333,7 +368,7 @@ resource "aws_iam_role" "codepipeline" {
         Action = "sts:AssumeRole"
         Effect = "Allow"
         Principal = {
-          Service = "codepipeline.amazonaws.com"
+          Service = "codebuild.amazonaws.com"
         }
       },
     ]
@@ -377,45 +412,6 @@ resource "aws_iam_role_policy" "codebuild_policy" {
       },
     ]
   })
-}
-
-
-resource "aws_iam_role_policy" "codepipeline_connections_policy" {
-  name = "${var.project_name}-codepipeline-connections-policy"
-  role = aws_iam_role.codepipeline.id
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Action = [
-          "codestar-connections:UseConnection",
-        ]
-        Resource = var.github_connection_arn
-      },
-    ]
-  })
-}
-
-resource "aws_iam_role" "codebuild" {
-  name = "${var.project_name}-codebuild-role"
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Action = "sts:AssumeRole"
-        Effect = "Allow"
-        Principal = {
-          Service = "codebuild.amazonaws.com"
-        }
-      },
-    ]
-  })
-}
-
-# --- CodeDeploy Application and Deployment Group ---
-resource "aws_codedeploy_app" "main" {
-  name = "${var.project_name}-app"
 }
 
 resource "aws_iam_role" "codedeploy" {
@@ -467,6 +463,11 @@ resource "aws_iam_role_policy" "codedeploy_autoscaling" {
   })
 }
 
+# --- CodeDeploy Application and Deployment Group ---
+resource "aws_codedeploy_app" "main" {
+  name = "${var.project_name}-app"
+}
+
 resource "aws_codedeploy_deployment_group" "main" {
   app_name              = aws_codedeploy_app.main.name
   deployment_group_name = "${var.project_name}-group"
@@ -492,8 +493,8 @@ resource "aws_codedeploy_deployment_group" "main" {
     }
 
     terminate_blue_instances_on_deployment_success {
-      action                            = "TERMINATE"
-      termination_wait_time_in_minutes  = 5
+      action                          = "TERMINATE"
+      termination_wait_time_in_minutes = 5
     }
   }
 
@@ -524,17 +525,17 @@ resource "aws_codepipeline" "main" {
   stage {
     name = "Source"
     action {
-      name              = "Source"
-      category          = "Source"
-      owner             = "AWS"
-      provider          = "CodeStarSourceConnection"
-      version           = "1"
+      name            = "Source"
+      category        = "Source"
+      owner           = "AWS"
+      provider        = "CodeStarSourceConnection"
+      version         = "1"
       output_artifacts  = ["SourceArtifact"]
 
       configuration = {
-        ConnectionArn      = var.github_connection_arn
-        FullRepositoryId   = "${var.github_owner}/${var.github_repo_name}"
-        BranchName         = var.github_branch
+        ConnectionArn     = var.github_connection_arn
+        FullRepositoryId  = "${var.github_owner}/${var.github_repo_name}"
+        BranchName        = var.github_branch
       }
     }
   }
@@ -542,11 +543,11 @@ resource "aws_codepipeline" "main" {
   stage {
     name = "Build"
     action {
-      name              = "Build"
-      category          = "Build"
-      owner             = "AWS"
-      provider          = "CodeBuild"
-      version           = "1"
+      name            = "Build"
+      category        = "Build"
+      owner           = "AWS"
+      provider        = "CodeBuild"
+      version         = "1"
       input_artifacts   = ["SourceArtifact"]
       output_artifacts  = ["BuildArtifact"]
 
@@ -559,11 +560,11 @@ resource "aws_codepipeline" "main" {
   stage {
     name = "Deploy"
     action {
-      name              = "Deploy"
-      category          = "Deploy"
-      owner             = "AWS"
-      provider          = "CodeDeploy"
-      version           = "1"
+      name            = "Deploy"
+      category        = "Deploy"
+      owner           = "AWS"
+      provider        = "CodeDeploy"
+      version         = "1"
       input_artifacts = ["BuildArtifact"]
 
       configuration = {
