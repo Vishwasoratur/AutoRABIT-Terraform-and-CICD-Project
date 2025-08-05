@@ -79,6 +79,40 @@ resource "aws_route_table_association" "public" {
   route_table_id = aws_route_table.public.id
 }
 
+// ADDED: Elastic IP for the NAT Gateway
+resource "aws_eip" "nat" {
+  vpc = true
+}
+
+// ADDED: NAT Gateway to allow private instances to reach the internet
+resource "aws_nat_gateway" "main" {
+  allocation_id = aws_eip.nat.id
+  subnet_id     = aws_subnet.public["us-west-2a"].id
+  tags = {
+    Name = "${var.project_name}-nat-gw"
+  }
+}
+
+// ADDED: Private Route Table to route traffic through the NAT Gateway
+resource "aws_route_table" "private" {
+  vpc_id = aws_vpc.main.id
+  route {
+    cidr_block = "0.0.0.0/0"
+    nat_gateway_id = aws_nat_gateway.main.id
+  }
+  tags = {
+    Name = "${var.project_name}-private-rt"
+  }
+}
+
+// ADDED: Associate private subnets with the new private route table
+resource "aws_route_table_association" "private" {
+  for_each       = aws_subnet.private
+  subnet_id      = each.value.id
+  route_table_id = aws_route_table.private.id
+}
+
+
 # --- Application Load Balancer ---
 resource "aws_security_group" "alb" {
   name        = "${var.project_name}-alb-sg"
@@ -377,7 +411,6 @@ resource "aws_iam_role_policy_attachment" "codedeploy_attachment" {
   policy_arn  = "arn:aws:iam::aws:policy/service-role/AWSCodeDeployRole"
 }
 
-// ADDED: Policy to grant autoscaling permissions to CodeDeploy role
 resource "aws_iam_role_policy" "codedeploy_autoscaling" {
   name = "${var.project_name}-codedeploy-autoscaling-policy"
   role = aws_iam_role.codedeploy.id
