@@ -1,17 +1,24 @@
 version: 0.2
-
 runtime-versions:
   docker: 19
-  
+
 phases:
+  install:
+    commands:
+      # Start the Docker daemon
+      - nohup dockerd > /dev/null 2>&1 &
+      # Give the daemon a moment to start up
+      - timeout 15 sh -c "until docker info; do echo .; sleep 1; done"
+      - echo "Docker daemon is running."
+
   pre_build:
     commands:
       - echo "Logging in to Amazon ECR..."
       - ACCOUNT_ID=$(aws sts get-caller-identity --query "Account" --output text)
-      # CORRECTED: Use the built-in environment variable instead of the failing command
       - REGION=$AWS_DEFAULT_REGION
       - ECR_REPO_URI="$ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com/devops-project-repo"
-      - $(aws ecr get-login-password --region $REGION | docker login --username AWS --password-stdin $ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com)
+      # Login to ECR using the new command syntax
+      - aws ecr get-login-password --region $REGION | docker login --username AWS --password-stdin $ECR_REPO_URI
       - echo "Authenticating with ECR successful."
       - echo "Updating terraform state with S3 backend configuration..."
       - cd terraform
@@ -32,15 +39,9 @@ phases:
       - docker push $ECR_REPO_URI:$CODEBUILD_RESOLVED_SOURCE_VERSION
       - echo "Docker images pushed to ECR."
       - echo "Running Terraform to update infrastructure (if needed)..."
-      # CORRECTED: The github_connection_arn must be the new one for us-west-2.
-      # You need to replace the placeholder below with the actual ARN from the AWS Console.
-      - terraform apply -auto-approve -var="github_owner=Vishwasoratur" -var="github_repo_name=AutoRABIT-Terraform-and-CICD-Project" -var="github_connection_arn=arn:aws:codeconnections:us-west-2:058264310461:connection/a46e6721-0e14-490e-9ba8-e2e7d5a1f478"
+      - terraform apply -auto-approve -var="github_owner=Vishwasoratur" -var="github_repo_name=AutoRABIT-Terraform-and-CICD-Project" -var="github_connection_arn=arn:aws:codeconnections:us-west-2:<YOUR_ACCOUNT_ID>:connection/<NEW_CONNECTION_ID>"
       - echo "Terraform applied."
 
 artifacts:
   files:
     - imagedefinitions.json
-
-
-
-
