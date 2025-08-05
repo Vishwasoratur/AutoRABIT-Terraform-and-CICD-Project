@@ -27,7 +27,7 @@ data "aws_ami" "amazon_linux_2" {
 
 # --- VPC and Networking ---
 resource "aws_vpc" "main" {
-  cidr_block          = "10.0.0.0/16"
+  cidr_block           = "10.0.0.0/16"
   enable_dns_hostnames = true
   tags = {
     Name = "${var.project_name}-vpc"
@@ -102,9 +102,9 @@ resource "aws_route_table" "private" {
 }
 
 resource "aws_route" "private_nat_gateway" {
-  route_table_id        = aws_route_table.private.id
+  route_table_id       = aws_route_table.private.id
   destination_cidr_block = "0.0.0.0/0"
-  nat_gateway_id        = aws_nat_gateway.main.id
+  nat_gateway_id       = aws_nat_gateway.main.id
 }
 
 resource "aws_route_table_association" "private" {
@@ -118,15 +118,15 @@ resource "aws_security_group" "alb" {
   name        = "${var.project_name}-alb-sg"
   vpc_id      = aws_vpc.main.id
   ingress {
-    protocol    = "tcp"
-    from_port   = 80
-    to_port     = 80
+    protocol  = "tcp"
+    from_port  = 80
+    to_port    = 80
     cidr_blocks = ["0.0.0.0/0"]
   }
   egress {
-    protocol    = "-1"
-    from_port   = 0
-    to_port     = 0
+    protocol  = "-1"
+    from_port  = 0
+    to_port    = 0
     cidr_blocks = ["0.0.0.0/0"]
   }
 }
@@ -172,15 +172,15 @@ resource "aws_security_group" "ec2" {
   name        = "${var.project_name}-ec2-sg"
   vpc_id      = aws_vpc.main.id
   ingress {
-    from_port       = 80
-    to_port         = 80
-    protocol        = "tcp"
+    from_port         = 80
+    to_port           = 80
+    protocol          = "tcp"
     security_groups = [aws_security_group.alb.id]
   }
   egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
+    from_port  = 0
+    to_port    = 0
+    protocol   = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
 }
@@ -217,7 +217,7 @@ resource "aws_iam_role_policy" "ec2_instance_policy" {
           "s3:GetObject",
           "s3:ListBucket",
         ],
-        Effect   = "Allow"
+        Effect    = "Allow"
         Resource = "*"
       },
     ]
@@ -263,36 +263,36 @@ EOF
 }
 
 resource "aws_autoscaling_group" "main" {
-  name                 = "${var.project_name}-asg"
+  name                  = "${var.project_name}-asg"
   vpc_zone_identifier  = [for subnet in aws_subnet.private : subnet.id]
-  desired_capacity     = 1
-  max_size             = 3
-  min_size             = 1
+  desired_capacity      = 1
+  max_size              = 3
+  min_size              = 1
   target_group_arns    = [aws_lb_target_group.app.arn]
   launch_template {
     id      = aws_launch_template.main.id
     version = "$Latest"
   }
   tag {
-    key                 = "Name"
-    value               = "${var.project_name}-instance"
+    key                   = "Name"
+    value                 = "${var.project_name}-instance"
     propagate_at_launch = true
   }
   tag {
-    key                 = "Environment"
-    value               = "production"
+    key                   = "Environment"
+    value                 = "production"
     propagate_at_launch = true
   }
   tag {
-    key                 = "codedeploy-group"
-    value               = "${var.project_name}-group"
+    key                   = "codedeploy-group"
+    value                 = "${var.project_name}-group"
     propagate_at_launch = true
   }
 }
 
 # --- CI/CD Stack Resources ---
 resource "aws_ecr_repository" "app_repo" {
-  name                 = "${var.project_name}-repo"
+  name                  = "${var.project_name}-repo"
   image_tag_mutability = "MUTABLE"
   tags = {
     Name = "${var.project_name}-ecr"
@@ -341,7 +341,7 @@ resource "aws_iam_role_policy" "codepipeline" {
           "codedeploy:*",
           "iam:PassRole",
         ],
-        Effect   = "Allow"
+        Effect    = "Allow"
         Resource = "*"
       },
     ]
@@ -482,7 +482,7 @@ resource "aws_codedeploy_deployment_group" "main" {
   }
   deployment_style {
     deployment_option = "IN_PLACE"
-    deployment_type   = "BLUE_GREEN"
+    deployment_type   = "IN_PLACE"
   }
   auto_rollback_configuration {
     enabled = true
@@ -504,17 +504,17 @@ resource "aws_codepipeline" "main" {
   stage {
     name = "Source"
     action {
-      name          = "Source"
-      category      = "Source"
-      owner         = "AWS"
-      provider      = "CodeStarSourceConnection"
-      version       = "1"
+      name            = "Source"
+      category        = "Source"
+      owner           = "AWS"
+      provider        = "CodeStarSourceConnection"
+      version         = "1"
       output_artifacts = ["SourceArtifact"]
 
       configuration = {
-        ConnectionArn    = var.github_connection_arn
+        ConnectionArn      = var.github_connection_arn
         FullRepositoryId = "${var.github_owner}/${var.github_repo_name}"
-        BranchName       = var.github_branch
+        BranchName         = var.github_branch
       }
     }
   }
@@ -522,12 +522,12 @@ resource "aws_codepipeline" "main" {
   stage {
     name = "Build"
     action {
-      name          = "Build"
-      category      = "Build"
-      owner         = "AWS"
-      provider      = "CodeBuild"
-      version       = "1"
-      input_artifacts  = ["SourceArtifact"]
+      name            = "Build"
+      category        = "Build"
+      owner           = "AWS"
+      provider        = "CodeBuild"
+      version         = "1"
+      input_artifacts    = ["SourceArtifact"]
       output_artifacts = ["BuildArtifact"]
 
       configuration = {
@@ -539,11 +539,11 @@ resource "aws_codepipeline" "main" {
   stage {
     name = "Deploy"
     action {
-      name          = "Deploy"
-      category      = "Deploy"
-      owner         = "AWS"
-      provider      = "CodeDeploy"
-      version       = "1"
+      name            = "Deploy"
+      category        = "Deploy"
+      owner           = "AWS"
+      provider        = "CodeDeploy"
+      version         = "1"
       input_artifacts = ["BuildArtifact"]
 
       configuration = {
