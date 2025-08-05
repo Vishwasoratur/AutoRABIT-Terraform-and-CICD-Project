@@ -10,8 +10,8 @@ COPY app/requirements.txt ./
 # Install any needed packages specified in requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the rest of the application code into the container
-COPY . .
+# CORRECTED: Copy the contents of the app/ directory into the container's working directory
+COPY app/. .
 
 # Expose the port the application will run on
 EXPOSE 8000
