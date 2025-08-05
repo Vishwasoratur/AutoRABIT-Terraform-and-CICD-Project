@@ -428,6 +428,7 @@ resource "aws_codedeploy_deployment_group" "main" {
       name = aws_lb_target_group.app.name
     }
   }
+}
   
   deployment_style {
   deployment_option = "WITH_TRAFFIC_CONTROL"
