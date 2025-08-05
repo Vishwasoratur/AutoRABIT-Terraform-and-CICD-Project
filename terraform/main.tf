@@ -334,6 +334,7 @@ resource "aws_iam_role_policy" "codepipeline" {
           "ecr:BatchCheckLayerAvailability",
           "codebuild:StartBuild",
           "codebuild:StopBuild",
+          "codebuild:BatchGetBuilds", // <-- Add this line
           "codedeploy:*",
           "iam:PassRole",
         ]
@@ -343,7 +344,6 @@ resource "aws_iam_role_policy" "codepipeline" {
     ]
   })
 }
-
 resource "aws_iam_role_policy" "codepipeline_connections_policy" {
   name = "${var.project_name}-codepipeline-connections-policy"
   role = aws_iam_role.codepipeline.id
