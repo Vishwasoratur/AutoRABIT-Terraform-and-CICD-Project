@@ -408,10 +408,14 @@ resource "aws_iam_role_policy" "codebuild_policy" {
           "dynamodb:PutItem",
           "dynamodb:DeleteItem",
           "codedeploy:PutLifecycleEventHookExecutionStatus",
-          "ec2:Describe*",  # Added to allow description of EC2 resources
-          "iam:GetRole", # Added to allow reading IAM roles
-          "ecr:ListTagsForResource", # Added to allow reading ECR tags
-          "codedeploy:GetApplication", # Added to allow reading CodeDeploy app
+          # New Permissions Added to Fix Current Errors
+          "ec2:Describe*",
+          "iam:GetRole",
+          "ecr:ListTagsForResource",
+          "codedeploy:GetApplication",
+          "codepipeline:*",
+          "iam:List*",
+          "iam:Get*",
         ]
         Resource = "*"
       },
