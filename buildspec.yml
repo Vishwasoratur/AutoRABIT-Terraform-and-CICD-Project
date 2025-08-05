@@ -48,7 +48,7 @@ phases:
       - echo "Docker images pushed to ECR."
       - echo "Running Terraform to update infrastructure (if needed)..."
       # Use -chdir to run terraform apply from within the terraform directory.
-      - terraform -chdir=terraform apply -auto-approve -var="github_owner=Vishwasoratur" -var="github_repo_name=AutoRABIT-Terraform-and-CICD-Project" -var="github_connection_arn=arn:aws:codeconnections:us-west-2:<YOUR_ACCOUNT_ID>:connection/<NEW_CONNECTION_ID>"
+      - terraform -chdir=terraform apply -auto-approve -var="github_owner=Vishwasoratur" -var="github_repo_name=AutoRABIT-Terraform-and-CICD-Project" -var="github_connection_arn=arn:aws:codeconnections:us-west-2:058264310461:connection/a46e6721-0e14-490e-9ba8-e2e7d5a1f478"
       - echo "Terraform applied."
 
 artifacts:
