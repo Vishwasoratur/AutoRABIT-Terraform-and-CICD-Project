@@ -199,7 +199,7 @@ resource "aws_launch_template" "main" {
   image_id            = data.aws_ami.amazon_linux_2.id
   instance_type       = "t2.micro"
   # IMPORTANT: This key pair must exist in the us-west-2 region.
-  key_name            = "sandy"  
+  key_name            = "sandy"
   vpc_security_group_ids = [aws_security_group.ec2.id]
   iam_instance_profile {
     arn = aws_iam_instance_profile.main.arn
@@ -297,7 +297,6 @@ resource "aws_iam_role_policy" "codepipeline" {
           "ecr:BatchCheckLayerAvailability",
           "codebuild:StartBuild",
           "codebuild:StopBuild",
-          # CORRECTED: Add this missing permission
           "codebuild:BatchGetBuilds",
           "codedeploy:*",
           "iam:PassRole",
@@ -414,36 +413,35 @@ resource "aws_codedeploy_deployment_group" "main" {
       value = "${var.project_name}-group"
     }
   }
+
   deployment_style {
     deployment_option = "WITH_TRAFFIC_CONTROL"
     deployment_type   = "BLUE_GREEN"
   }
+
+  blue_green_deployment_config {
+    deployment_ready_option {
+      action_on_timeout    = "CONTINUE_DEPLOYMENT"
+      wait_time_in_minutes = 0
+    }
+
+    terminate_blue_instances_on_deployment_success {
+      action                           = "TERMINATE"
+      termination_wait_time_in_minutes = 5
+    }
+  }
+
   auto_rollback_configuration {
     enabled = true
     events  = ["DEPLOYMENT_FAILURE"]
   }
+
   autoscaling_groups = [aws_autoscaling_group.main.name]
+
   load_balancer_info {
     target_group_info {
       name = aws_lb_target_group.app.name
     }
-  }
-}
-  
-  deployment_style {
-  deployment_option = "WITH_TRAFFIC_CONTROL"
-  deployment_type   = "BLUE_GREEN"
-}
-
-blue_green_deployment_config {
-  deployment_ready_option {
-    action_on_timeout    = "CONTINUE_DEPLOYMENT"
-    wait_time_in_minutes = 0
-  }
-
-  terminate_blue_instances_on_deployment_success {
-    action                           = "TERMINATE"
-    termination_wait_time_in_minutes = 5
   }
 }
 
