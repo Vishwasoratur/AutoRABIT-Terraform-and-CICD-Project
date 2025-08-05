@@ -27,7 +27,7 @@ data "aws_ami" "amazon_linux_2" {
 
 # --- VPC and Networking ---
 resource "aws_vpc" "main" {
-  cidr_block           = "10.0.0.0/16"
+  cidr_block         = "10.0.0.0/16"
   enable_dns_hostnames = true
   tags = {
     Name = "${var.project_name}-vpc"
@@ -35,10 +35,10 @@ resource "aws_vpc" "main" {
 }
 
 resource "aws_subnet" "public" {
-  for_each                = toset(local.availability_zones)
-  vpc_id                  = aws_vpc.main.id
-  cidr_block              = local.cidr_ranges["public_${index(local.availability_zones, each.value)}"]
-  availability_zone       = each.value
+  for_each          = toset(local.availability_zones)
+  vpc_id            = aws_vpc.main.id
+  cidr_block          = local.cidr_ranges["public_${index(local.availability_zones, each.value)}"]
+  availability_zone   = each.value
   map_public_ip_on_launch = true
   tags = {
     Name = "${var.project_name}-public-subnet-${each.value}"
@@ -46,10 +46,10 @@ resource "aws_subnet" "public" {
 }
 
 resource "aws_subnet" "private" {
-  for_each                = toset(local.availability_zones)
-  vpc_id                  = aws_vpc.main.id
-  cidr_block              = local.cidr_ranges["private_${index(local.availability_zones, each.value)}"]
-  availability_zone       = each.value
+  for_each          = toset(local.availability_zones)
+  vpc_id            = aws_vpc.main.id
+  cidr_block          = local.cidr_ranges["private_${index(local.availability_zones, each.value)}"]
+  availability_zone   = each.value
   tags = {
     Name = "${var.project_name}-private-subnet-${each.value}"
   }
@@ -74,8 +74,8 @@ resource "aws_route_table" "public" {
 }
 
 resource "aws_route_table_association" "public" {
-  for_each       = aws_subnet.public
-  subnet_id      = each.value.id
+  for_each        = aws_subnet.public
+  subnet_id       = each.value.id
   route_table_id = aws_route_table.public.id
 }
 
@@ -98,11 +98,11 @@ resource "aws_security_group" "alb" {
 }
 
 resource "aws_lb" "main" {
-  name                = "${var.project_name}-alb"
-  internal            = false
+  name              = "${var.project_name}-alb"
+  internal          = false
   load_balancer_type  = "application"
-  security_groups     = [aws_security_group.alb.id]
-  subnets             = [for subnet in aws_subnet.public : subnet.id]
+  security_groups   = [aws_security_group.alb.id]
+  subnets           = [for subnet in aws_subnet.public : subnet.id]
 }
 
 resource "aws_lb_target_group" "app" {
@@ -128,8 +128,8 @@ resource "aws_lb_listener" "http" {
   port              = 80
   protocol          = "HTTP"
   default_action {
-    type             = "forward"
-    target_group_arn = aws_lb_target_group.app.arn
+    type              = "forward"
+    target_group_arn  = aws_lb_target_group.app.arn
   }
 }
 
@@ -195,11 +195,11 @@ resource "aws_iam_instance_profile" "main" {
 }
 
 resource "aws_launch_template" "main" {
-  name_prefix            = "${var.project_name}-lt-"
-  image_id               = data.aws_ami.amazon_linux_2.id
-  instance_type          = "t2.micro"
+  name_prefix         = "${var.project_name}-lt-"
+  image_id            = data.aws_ami.amazon_linux_2.id
+  instance_type       = "t2.micro"
   # IMPORTANT: This key pair must exist in the us-west-2 region.
-  key_name               = "sandy" 
+  key_name            = "sandy"  
   vpc_security_group_ids = [aws_security_group.ec2.id]
   iam_instance_profile {
     arn = aws_iam_instance_profile.main.arn
@@ -223,36 +223,36 @@ EOF
 }
 
 resource "aws_autoscaling_group" "main" {
-  name                        = "${var.project_name}-asg"
-  vpc_zone_identifier         = [for subnet in aws_subnet.private : subnet.id]
-  desired_capacity            = 1
-  max_size                    = 3
-  min_size                    = 1
-  target_group_arns           = [aws_lb_target_group.app.arn]
+  name                  = "${var.project_name}-asg"
+  vpc_zone_identifier   = [for subnet in aws_subnet.private : subnet.id]
+  desired_capacity      = 1
+  max_size              = 3
+  min_size              = 1
+  target_group_arns     = [aws_lb_target_group.app.arn]
   launch_template {
     id      = aws_launch_template.main.id
     version = "$Latest"
   }
   tag {
-    key                 = "Name"
-    value               = "${var.project_name}-instance"
+    key             = "Name"
+    value           = "${var.project_name}-instance"
     propagate_at_launch = true
   }
   tag {
-    key                 = "Environment"
-    value               = "production"
+    key             = "Environment"
+    value           = "production"
     propagate_at_launch = true
   }
   tag {
-    key                 = "codedeploy-group"
-    value               = "${var.project_name}-group"
+    key             = "codedeploy-group"
+    value           = "${var.project_name}-group"
     propagate_at_launch = true
   }
 }
 
 # --- CI/CD Stack Resources ---
 resource "aws_ecr_repository" "app_repo" {
-  name                 = "${var.project_name}-repo"
+  name              = "${var.project_name}-repo"
   image_tag_mutability = "MUTABLE"
   tags = {
     Name = "${var.project_name}-ecr"
@@ -398,8 +398,8 @@ resource "aws_iam_role" "codedeploy" {
 }
 
 resource "aws_iam_role_policy_attachment" "codedeploy_attachment" {
-  role       = aws_iam_role.codedeploy.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSCodeDeployRole"
+  role         = aws_iam_role.codedeploy.name
+  policy_arn   = "arn:aws:iam::aws:policy/service-role/AWSCodeDeployRole"
 }
 
 resource "aws_codedeploy_deployment_group" "main" {
@@ -428,6 +428,17 @@ resource "aws_codedeploy_deployment_group" "main" {
       name = aws_lb_target_group.app.name
     }
   }
+  
+  # CHANGED: Added the missing Blue/Green deployment configuration
+  blue_green_deployment_configuration {
+    deployment_ready_option {
+      action_on_timeout = "CONTINUE_DEPLOYMENT"
+    }
+    terminate_blue_instances_on_deployment_success {
+      action                           = "TERMINATE"
+      termination_wait_time_in_minutes = 5
+    }
+  }
 }
 
 # --- CodePipeline and CodeBuild ---
@@ -443,11 +454,11 @@ resource "aws_codepipeline" "main" {
   stage {
     name = "Source"
     action {
-      name             = "Source"
-      category         = "Source"
-      owner            = "AWS"
-      provider         = "CodeStarSourceConnection"
-      version          = "1"
+      name            = "Source"
+      category        = "Source"
+      owner           = "AWS"
+      provider        = "CodeStarSourceConnection"
+      version         = "1"
       output_artifacts = ["SourceArtifact"]
 
       configuration = {
@@ -461,11 +472,11 @@ resource "aws_codepipeline" "main" {
   stage {
     name = "Build"
     action {
-      name             = "Build"
-      category         = "Build"
-      owner            = "AWS"
-      provider         = "CodeBuild"
-      version          = "1"
+      name            = "Build"
+      category        = "Build"
+      owner           = "AWS"
+      provider        = "CodeBuild"
+      version         = "1"
       input_artifacts  = ["SourceArtifact"]
       output_artifacts = ["BuildArtifact"]
 
@@ -478,11 +489,11 @@ resource "aws_codepipeline" "main" {
   stage {
     name = "Deploy"
     action {
-      name             = "Deploy"
-      category         = "Deploy"
-      owner            = "AWS"
-      provider         = "CodeDeploy"
-      version          = "1"
+      name            = "Deploy"
+      category        = "Deploy"
+      owner           = "AWS"
+      provider        = "CodeDeploy"
+      version         = "1"
       input_artifacts = ["BuildArtifact"]
 
       configuration = {
@@ -521,4 +532,29 @@ resource "aws_codebuild_project" "main" {
   tags = {
     Name = "${var.project_name}-codebuild"
   }
+}
+
+variable "project_name" {
+  type = string
+}
+
+variable "aws_region" {
+  type = string
+}
+
+variable "github_owner" {
+  type = string
+}
+
+variable "github_repo_name" {
+  type = string
+}
+
+variable "github_branch" {
+  type    = string
+  default = "main"
+}
+
+variable "github_connection_arn" {
+  type = string
 }
