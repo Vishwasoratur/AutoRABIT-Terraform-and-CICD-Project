@@ -81,7 +81,7 @@ resource "aws_route_table_association" "public" {
 
 // ADDED: Elastic IP for the NAT Gateway
 resource "aws_eip" "nat" {
-  vpc = true
+  domain = "vpc"
 }
 
 // ADDED: NAT Gateway to allow private instances to reach the internet
