@@ -27,7 +27,7 @@ data "aws_ami" "amazon_linux_2" {
 
 # --- VPC and Networking ---
 resource "aws_vpc" "main" {
-  cidr_block           = "10.0.0.0/16"
+  cidr_block         = "10.0.0.0/16"
   enable_dns_hostnames = true
   tags = {
     Name = "${var.project_name}-vpc"
@@ -252,7 +252,7 @@ resource "aws_autoscaling_group" "main" {
 
 # --- CI/CD Stack Resources ---
 resource "aws_ecr_repository" "app_repo" {
-  name                 = "${var.project_name}-repo"
+  name                = "${var.project_name}-repo"
   image_tag_mutability = "MUTABLE"
   tags = {
     Name = "${var.project_name}-ecr"
@@ -377,6 +377,35 @@ resource "aws_iam_role_policy_attachment" "codedeploy_attachment" {
   policy_arn  = "arn:aws:iam::aws:policy/service-role/AWSCodeDeployRole"
 }
 
+// ADDED: Policy to grant autoscaling permissions to CodeDeploy role
+resource "aws_iam_role_policy" "codedeploy_autoscaling" {
+  name = "${var.project_name}-codedeploy-autoscaling-policy"
+  role = aws_iam_role.codedeploy.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "autoscaling:CreateAutoScalingGroup",
+          "autoscaling:UpdateAutoScalingGroup",
+          "autoscaling:DeleteAutoScalingGroup",
+          "autoscaling:CreateLaunchConfiguration",
+          "autoscaling:CreateOrUpdateTags",
+          "autoscaling:PutLifecycleHook",
+          "autoscaling:DeleteLifecycleHook",
+          "autoscaling:DescribeAutoScalingGroups",
+          "autoscaling:DescribeTags",
+          "ec2:CreateLaunchTemplateVersion",
+          "ec2:DescribeLaunchTemplates",
+        ]
+        Resource = "*"
+      },
+    ]
+  })
+}
+
 resource "aws_codedeploy_deployment_group" "main" {
   app_name              = aws_codedeploy_app.main.name
   deployment_group_name = "${var.project_name}-group"
@@ -397,13 +426,13 @@ resource "aws_codedeploy_deployment_group" "main" {
 
   blue_green_deployment_config {
     deployment_ready_option {
-      action_on_timeout    = "CONTINUE_DEPLOYMENT"
-      wait_time_in_minutes = 0
+      action_on_timeout     = "CONTINUE_DEPLOYMENT"
+      wait_time_in_minutes  = 0
     }
 
     terminate_blue_instances_on_deployment_success {
-      action                           = "TERMINATE"
-      termination_wait_time_in_minutes = 5
+      action                            = "TERMINATE"
+      termination_wait_time_in_minutes  = 5
     }
   }
 
@@ -423,8 +452,8 @@ resource "aws_codedeploy_deployment_group" "main" {
 
 # --- CodePipeline and CodeBuild ---
 resource "aws_codepipeline" "main" {
-  name     = "${var.project_name}-pipeline"
-  role_arn = aws_iam_role.codepipeline.arn
+  name      = "${var.project_name}-pipeline"
+  role_arn  = aws_iam_role.codepipeline.arn
 
   artifact_store {
     location = aws_s3_bucket.codepipeline_artifacts.id
@@ -434,17 +463,17 @@ resource "aws_codepipeline" "main" {
   stage {
     name = "Source"
     action {
-      name             = "Source"
-      category         = "Source"
-      owner            = "AWS"
-      provider         = "CodeStarSourceConnection"
-      version          = "1"
-      output_artifacts = ["SourceArtifact"]
+      name              = "Source"
+      category          = "Source"
+      owner             = "AWS"
+      provider          = "CodeStarSourceConnection"
+      version           = "1"
+      output_artifacts  = ["SourceArtifact"]
 
       configuration = {
-        ConnectionArn    = var.github_connection_arn
-        FullRepositoryId = "${var.github_owner}/${var.github_repo_name}"
-        BranchName       = var.github_branch
+        ConnectionArn      = var.github_connection_arn
+        FullRepositoryId   = "${var.github_owner}/${var.github_repo_name}"
+        BranchName         = var.github_branch
       }
     }
   }
@@ -452,13 +481,13 @@ resource "aws_codepipeline" "main" {
   stage {
     name = "Build"
     action {
-      name             = "Build"
-      category         = "Build"
-      owner            = "AWS"
-      provider         = "CodeBuild"
-      version          = "1"
-      input_artifacts  = ["SourceArtifact"]
-      output_artifacts = ["BuildArtifact"]
+      name              = "Build"
+      category          = "Build"
+      owner             = "AWS"
+      provider          = "CodeBuild"
+      version           = "1"
+      input_artifacts   = ["SourceArtifact"]
+      output_artifacts  = ["BuildArtifact"]
 
       configuration = {
         ProjectName = aws_codebuild_project.main.name
@@ -469,15 +498,15 @@ resource "aws_codepipeline" "main" {
   stage {
     name = "Deploy"
     action {
-      name             = "Deploy"
-      category         = "Deploy"
-      owner            = "AWS"
-      provider         = "CodeDeploy"
-      version          = "1"
+      name              = "Deploy"
+      category          = "Deploy"
+      owner             = "AWS"
+      provider          = "CodeDeploy"
+      version           = "1"
       input_artifacts = ["BuildArtifact"]
 
       configuration = {
-        ApplicationName   = aws_codedeploy_app.main.name
+        ApplicationName     = aws_codedeploy_app.main.name
         DeploymentGroupName = aws_codedeploy_deployment_group.main.deployment_group_name
       }
     }
