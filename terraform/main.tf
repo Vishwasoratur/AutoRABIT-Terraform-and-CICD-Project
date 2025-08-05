@@ -316,7 +316,6 @@ resource "aws_iam_role_policy" "codepipeline_s3_access" {
     ]
   })
 }
-
 resource "aws_s3_bucket" "codepipeline_artifacts" {
   bucket = "${var.project_name}-codepipeline-artifacts"
   tags = {
