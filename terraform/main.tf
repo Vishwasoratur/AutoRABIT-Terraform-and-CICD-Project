@@ -343,33 +343,42 @@ resource "aws_iam_role" "codebuild" {
 }
 
 resource "aws_iam_role_policy" "codebuild_policy" {
-  name = "${var.project_name}-codebuild-policy"
-  role = aws_iam_role.codebuild.id
+  role   = aws_iam_role.codebuild.id
+  name   = "devops-project-codebuild-policy"
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
       {
+        Effect = "Allow"
         Action = [
-          "logs:CreateLogGroup",
-          "logs:CreateLogStream",
-          "logs:PutLogEvents",
-          "s3:*",
           "ecr:GetAuthorizationToken",
           "ecr:BatchCheckLayerAvailability",
           "ecr:GetDownloadUrlForLayer",
-          "ecr:GetRepositoryPolicy",
-          "ecr:DescribeRepositories",
-          "ecr:ListImages",
-          "ecr:DescribeImages",
           "ecr:BatchGetImage",
           "ecr:InitiateLayerUpload",
           "ecr:UploadLayerPart",
           "ecr:CompleteLayerUpload",
           "ecr:PutImage",
+          "logs:CreateLogGroup",
+          "logs:CreateLogStream",
+          "logs:PutLogEvents",
+          "s3:GetObject",
+          "s3:PutObject",
+          "s3:GetBucketAcl",
+          "s3:GetBucketLocation",
+          "s3:ListBucket",
+          "codedeploy:CreateDeployment",
+          "codedeploy:GetDeployment",
+          "codedeploy:GetDeploymentConfig",
+          "codedeploy:RegisterApplicationRevision",
+          "codedeploy:UpdateDeploymentGroup",
+          "ec2:DescribeAddresses",
           "iam:PassRole",
-          "ssm:*",
+          // ADDED: DynamoDB permissions for Terraform state locking
+          "dynamodb:GetItem",
+          "dynamodb:PutItem",
+          "dynamodb:DeleteItem",
         ]
-        Effect   = "Allow"
         Resource = "*"
       },
     ]
