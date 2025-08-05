@@ -7,9 +7,17 @@ phases:
     commands:
       # Start the Docker daemon
       - nohup dockerd > /dev/null 2>&1 &
-      # Give the daemon a moment to start up
       - timeout 15 sh -c "until docker info; do echo .; sleep 1; done"
       - echo "Docker daemon is running."
+      
+      # ADDED: Download and install Terraform
+      - echo "Installing Terraform..."
+      - curl -o terraform.zip https://releases.hashicorp.com/terraform/1.7.0/terraform_1.7.0_linux_amd64.zip
+      - unzip terraform.zip
+      - mv terraform /usr/local/bin/
+      - rm terraform.zip
+      - terraform --version
+      - echo "Terraform installed."
 
   pre_build:
     commands:
@@ -17,7 +25,6 @@ phases:
       - ACCOUNT_ID=$(aws sts get-caller-identity --query "Account" --output text)
       - REGION=$AWS_DEFAULT_REGION
       - ECR_REPO_URI="$ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com/devops-project-repo"
-      # Login to ECR using the new command syntax
       - aws ecr get-login-password --region $REGION | docker login --username AWS --password-stdin $ECR_REPO_URI
       - echo "Authenticating with ECR successful."
       - echo "Updating terraform state with S3 backend configuration..."
