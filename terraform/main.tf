@@ -378,8 +378,9 @@ resource "aws_iam_role" "codebuild" {
 }
 
 resource "aws_iam_role_policy" "codebuild_policy" {
-  name = "${var.project_name}-codebuild-policy"
   role = aws_iam_role.codebuild.id
+  name = "devops-project-codebuild-policy"
+
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -408,7 +409,6 @@ resource "aws_iam_role_policy" "codebuild_policy" {
           "dynamodb:PutItem",
           "dynamodb:DeleteItem",
           "codedeploy:PutLifecycleEventHookExecutionStatus",
-          # New Permissions Added to Fix Current Errors
           "ec2:Describe*",
           "iam:GetRole",
           "ecr:ListTagsForResource",
@@ -416,12 +416,26 @@ resource "aws_iam_role_policy" "codebuild_policy" {
           "codepipeline:*",
           "iam:List*",
           "iam:Get*",
+          "iam:PutRolePolicy",
+          "ec2:CreateLaunchTemplateVersion",
+          "elasticloadbalancing:DescribeLoadBalancers",
+          "elasticloadbalancing:DescribeTargetGroups",
+          "codedeploy:ListTagsForResource",
+          "codebuild:BatchGetProjects",
+          "elasticloadbalancing:DescribeLoadBalancerAttributes",
+          "elasticloadbalancing:DescribeTargetGroupAttributes",
+          "elasticloadbalancing:DescribeTags",
+          "elasticloadbalancing:DescribeListeners",
+          "autoscaling:DescribeAutoScalingGroups",
+          "elasticloadbalancing:DescribeListenerAttributes",
+          "codedeploy:GetDeploymentGroup"
         ]
         Resource = "*"
-      },
+      }
     ]
   })
 }
+
 # --- CodeDeploy Application and Deployment Group ---
 resource "aws_codedeploy_app" "main" {
   name = "${var.project_name}-app"
