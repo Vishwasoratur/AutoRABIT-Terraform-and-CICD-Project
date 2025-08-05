@@ -4,13 +4,13 @@ phases:
     commands:
       - echo "Logging in to Amazon ECR..."
       - ACCOUNT_ID=$(aws sts get-caller-identity --query "Account" --output text)
-      - REGION=$(aws configure get region)
+      # CORRECTED: Use the built-in environment variable instead of the failing command
+      - REGION=$AWS_DEFAULT_REGION
       - ECR_REPO_URI="$ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com/devops-project-repo"
       - $(aws ecr get-login-password --region $REGION | docker login --username AWS --password-stdin $ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com)
       - echo "Authenticating with ECR successful."
       - echo "Updating terraform state with S3 backend configuration..."
       - cd terraform
-      # CORRECTED: The bucket name has been updated to reflect the new region.
       - terraform init -backend-config="bucket=vishwa-devops-project-terraform-state-2025-us-west-2" -backend-config="key=devops-project/terraform.tfstate" -backend-config="region=$REGION" -backend-config="dynamodb_table=vishwa-devops-project-terraform-locks"
       - echo "Terraform initialized."
 
