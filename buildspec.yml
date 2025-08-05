@@ -13,9 +13,10 @@ phases:
       # Corrected: Download and install Terraform
       - echo "Installing Terraform..."
       - curl -o terraform.zip https://releases.hashicorp.com/terraform/1.7.0/terraform_1.7.0_linux_amd64.zip
-      # ADDED -o flag to overwrite without prompting
-      - unzip -o terraform.zip
-      - mv terraform /usr/local/bin/
+      # ADDED -d /tmp to extract to a temporary directory
+      - unzip -o -d /tmp terraform.zip
+      # Move the executable from the temporary directory
+      - mv /tmp/terraform /usr/local/bin/
       - rm terraform.zip
       - terraform --version
       - echo "Terraform installed."
