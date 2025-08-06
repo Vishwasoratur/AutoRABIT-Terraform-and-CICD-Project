@@ -440,6 +440,8 @@ resource "aws_iam_role_policy" "codebuild_policy" {
           "logs:CreateLogStream",
           "logs:PutLogEvents",
           "logs:PutRetentionPolicy",
+          "logs:DescribeLogGroups",
+          "cloudwatch:DescribeAlarms",
           "sns:*",
           "s3:*", # Broad permissions for S3 for artifact and state management
           "ecr:*", # Broad permissions for ECR for image management
