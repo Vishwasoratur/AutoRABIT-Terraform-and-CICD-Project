@@ -276,16 +276,10 @@ sudo service docker start
 sudo usermod -a -G docker ec2-user
 
 # Configure Docker to use the awslogs driver
-sudo cat <<EOT > /etc/docker/daemon.json
-{
-  "log-driver": "awslogs",
-  "log-opts": {
-    "awslogs-group": "${var.project_name}-container-logs",
-    "awslogs-region": "${var.aws_region}",
-    "awslogs-stream-prefix": "app"
-  }
-}
-EOT
+sudo mkdir -p /etc/docker
+sudo echo "{ \"log-driver\": \"awslogs\", \"log-opts\": { \"awslogs-group\": \"${var.project_name}-container-logs\", \"awslogs-region\": \"${var.aws_region}\", \"awslogs-stream-prefix\": \"app\" } }" | sudo tee /etc/docker/daemon.json > /dev/null
+
+# Restart the Docker service to apply the changes
 sudo systemctl restart docker
 EOF
   )
