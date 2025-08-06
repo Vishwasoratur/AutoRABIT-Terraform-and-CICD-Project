@@ -639,3 +639,8 @@ resource "aws_codebuild_project" "main" {
     Name = "${var.project_name}-codebuild"
   }
 }
+
+resource "aws_iam_role_policy_attachment" "ec2_ssm_attachment" {
+  role       = aws_iam_role.ec2_instance_profile.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+}
