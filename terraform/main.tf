@@ -391,7 +391,10 @@ resource "aws_iam_role_policy" "codebuild_policy" {
           "elasticloadbalancing:DescribeTargetGroups",
           "dynamodb:DescribeTimeToLive",
           "codedeploy:ListTagsForResource",
-          "codebuild:BatchGetProjects"
+          "codebuild:BatchGetProjects",
+          "elasticloadbalancing:DescribeLoadBalancerAttributes",
+          "elasticloadbalancing:DescribeTargetGroupAttributes",
+          "dynamodb:ListTagsOfResource",
         ]
         Effect   = "Allow"
         Resource = "*"
