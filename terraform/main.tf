@@ -30,7 +30,7 @@ data "aws_ami" "amazon_linux_2" {
 # --- VPC and Networking ---
 # -----------------------------------------------------------------------------
 resource "aws_vpc" "main" {
-  cidr_block         = "10.0.0.0/16"
+  cidr_block           = "10.0.0.0/16"
   enable_dns_hostnames = true
   tags = {
     Name = "${var.project_name}-vpc"
@@ -135,11 +135,11 @@ resource "aws_security_group" "alb" {
 }
 
 resource "aws_lb" "main" {
-  name                = "${var.project_name}-alb"
-  internal            = false
-  load_balancer_type  = "application"
-  security_groups     = [aws_security_group.alb.id]
-  subnets             = [for subnet in aws_subnet.public : subnet.id]
+  name              = "${var.project_name}-alb"
+  internal          = false
+  load_balancer_type = "application"
+  security_groups   = [aws_security_group.alb.id]
+  subnets           = [for subnet in aws_subnet.public : subnet.id]
 }
 
 resource "aws_lb_target_group" "app" {
@@ -165,8 +165,8 @@ resource "aws_lb_listener" "http" {
   port              = 80
   protocol          = "HTTP"
   default_action {
-    type             = "forward"
-    target_group_arn = aws_lb_target_group.app.arn
+    type              = "forward"
+    target_group_arn  = aws_lb_target_group.app.arn
   }
 }
 
@@ -220,8 +220,12 @@ resource "aws_iam_role_policy" "ec2_instance_policy" {
           "ecr:GetAuthorizationToken",
           "codedeploy:PutLifecycleEventHookExecutionStatus",
           "ssm:GetParameters",
-          # ADDED: Permission to download the CodeDeploy agent from S3
-          "s3:GetObject"
+          "s3:GetObject",
+          # NEW: Permissions for CloudWatch Logs
+          "logs:CreateLogGroup",
+          "logs:CreateLogStream",
+          "logs:PutLogEvents",
+          "logs:DescribeLogStreams"
         ]
         Effect   = "Allow"
         Resource = "*"
@@ -230,13 +234,13 @@ resource "aws_iam_role_policy" "ec2_instance_policy" {
   })
 }
 
-# ADDED: Attach the AWSCodeDeployRole policy to the EC2 instance role
+# Attach the AWSCodeDeployRole policy to the EC2 instance role
 resource "aws_iam_role_policy_attachment" "ec2_codedeploy_attachment" {
   role       = aws_iam_role.ec2_instance_profile.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSCodeDeployRole"
 }
 
-# ADDED: Attach the AmazonSSMManagedInstanceCore policy for Session Manager
+# Attach the AmazonSSMManagedInstanceCore policy for Session Manager
 resource "aws_iam_role_policy_attachment" "ec2_ssm_attachment" {
   role       = aws_iam_role.ec2_instance_profile.name
   policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
@@ -248,10 +252,10 @@ resource "aws_iam_instance_profile" "main" {
 }
 
 resource "aws_launch_template" "main" {
-  name_prefix          = "${var.project_name}-lt-"
-  image_id             = data.aws_ami.amazon_linux_2.id
-  instance_type        = "t2.micro"
-  key_name             = "sandy" # Make sure this key pair exists in us-west-2
+  name_prefix           = "${var.project_name}-lt-"
+  image_id              = data.aws_ami.amazon_linux_2.id
+  instance_type         = "t2.micro"
+  key_name              = "sandy" # Make sure this key pair exists in us-west-2
   vpc_security_group_ids = [aws_security_group.ec2.id]
   iam_instance_profile {
     arn = aws_iam_instance_profile.main.arn
@@ -270,6 +274,19 @@ sudo service codedeploy-agent status
 sudo yum install -y docker
 sudo service docker start
 sudo usermod -a -G docker ec2-user
+
+# Configure Docker to use the awslogs driver
+sudo cat <<EOT > /etc/docker/daemon.json
+{
+  "log-driver": "awslogs",
+  "log-opts": {
+    "awslogs-group": "${var.project_name}-container-logs",
+    "awslogs-region": "${var.aws_region}",
+    "awslogs-stream-prefix": "app"
+  }
+}
+EOT
+sudo systemctl restart docker
 EOF
   )
 }
@@ -540,6 +557,56 @@ resource "aws_codedeploy_deployment_group" "main" {
     events  = ["DEPLOYMENT_FAILURE"]
   }
 }
+
+# --- CloudWatch Resources for Observability (NEW) ---
+resource "aws_cloudwatch_log_group" "app_logs" {
+  name              = "${var.project_name}-container-logs"
+  retention_in_days = 14
+}
+
+resource "aws_sns_topic" "alarm_notifications" {
+  name = "${var.project_name}-alarm-notifications"
+}
+
+resource "aws_cloudwatch_metric_alarm" "alb_5xx_alarm" {
+  alarm_name          = "${var.project_name}-alb-5xx-errors"
+  comparison_operator = "GreaterThanOrEqualToThreshold"
+  evaluation_periods  = 1
+  metric_name         = "HTTPCode_ELB_5XX_Count"
+  namespace           = "AWS/ApplicationELB"
+  period              = 60
+  statistic           = "Sum"
+  threshold           = 5
+  alarm_description   = "This alarm monitors for 5xx errors from the ALB."
+  
+  dimensions = {
+    LoadBalancer = aws_lb.main.name
+  }
+
+  alarm_actions = [aws_sns_topic.alarm_notifications.arn]
+  ok_actions    = [aws_sns_topic.alarm_notifications.arn]
+}
+
+resource "aws_cloudwatch_metric_alarm" "alb_unhealthy_hosts" {
+  alarm_name          = "${var.project_name}-alb-unhealthy-hosts"
+  comparison_operator = "LessThanThreshold"
+  evaluation_periods  = 1
+  metric_name         = "HealthyHostCount"
+  namespace           = "AWS/ApplicationELB"
+  period              = 60
+  statistic           = "Minimum"
+  threshold           = 1
+  alarm_description   = "This alarm monitors the number of healthy instances in the target group."
+
+  dimensions = {
+    TargetGroup = aws_lb_target_group.app.name
+  }
+  
+  alarm_actions = [aws_sns_topic.alarm_notifications.arn]
+  ok_actions    = [aws_sns_topic.alarm_notifications.arn]
+}
+
+
 # --- CodePipeline and CodeBuild ---
 resource "aws_codepipeline" "main" {
   name     = "${var.project_name}-pipeline"
@@ -561,9 +628,9 @@ resource "aws_codepipeline" "main" {
       output_artifacts = ["SourceArtifact"]
 
       configuration = {
-        ConnectionArn    = var.github_connection_arn
-        FullRepositoryId = "${var.github_owner}/${var.github_repo_name}"
-        BranchName       = var.github_branch
+        ConnectionArn      = var.github_connection_arn
+        FullRepositoryId   = "${var.github_owner}/${var.github_repo_name}"
+        BranchName         = var.github_branch
       }
     }
   }
@@ -596,8 +663,8 @@ resource "aws_codepipeline" "main" {
       input_artifacts  = ["BuildArtifact"]
 
       configuration = {
-        ApplicationName     = aws_codedeploy_app.main.name
-        DeploymentGroupName = aws_codedeploy_deployment_group.main.deployment_group_name
+        ApplicationName      = aws_codedeploy_app.main.name
+        DeploymentGroupName  = aws_codedeploy_deployment_group.main.deployment_group_name
       }
     }
   }
@@ -613,9 +680,9 @@ resource "aws_codebuild_project" "main" {
   }
 
   environment {
-    compute_type = "BUILD_GENERAL1_SMALL"
-    type         = "LINUX_CONTAINER"
-    image        = "aws/codebuild/standard:5.0"
+    compute_type    = "BUILD_GENERAL1_SMALL"
+    type            = "LINUX_CONTAINER"
+    image           = "aws/codebuild/standard:5.0"
     privileged_mode = true
     environment_variable {
         name  = "DOCKER_REPOSITORY_URI"
