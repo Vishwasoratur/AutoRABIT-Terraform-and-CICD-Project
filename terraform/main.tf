@@ -266,6 +266,19 @@ resource "aws_s3_bucket" "codepipeline_artifacts" {
   }
 }
 
+# --- DynamoDB table for Terraform state locking ---
+resource "aws_dynamodb_table" "terraform_locks" {
+  name           = "vishwa-devops-project-terraform-locks"
+  hash_key       = "LockID"
+  read_capacity  = 5
+  write_capacity = 5
+
+  attribute {
+    name = "LockID"
+    type = "S"
+  }
+}
+
 # --- IAM Roles for CodePipeline and CodeBuild ---
 resource "aws_iam_role" "codepipeline" {
   name = "${var.project_name}-codepipeline-role"
@@ -353,28 +366,22 @@ resource "aws_iam_role_policy" "codebuild_policy" {
           "logs:CreateLogStream",
           "logs:PutLogEvents",
           "s3:*",
-          "ecr:GetAuthorizationToken",
-          "ecr:BatchCheckLayerAvailability",
-          "ecr:GetDownloadUrlForLayer",
-          "ecr:GetRepositoryPolicy",
-          "ecr:DescribeRepositories",
-          "ecr:ListImages",
-          "ecr:DescribeImages",
-          "ecr:BatchGetImage",
-          "ecr:InitiateLayerUpload",
-          "ecr:UploadLayerPart",
-          "ecr:CompleteLayerUpload",
-          "ecr:PutImage",
+          "ecr:*",
           "iam:PassRole",
           "ssm:*",
-          # ADDED: DynamoDB permissions for Terraform state locking
+        ]
+        Effect   = "Allow"
+        Resource = "*"
+      },
+      {
+        Action = [
           "dynamodb:GetItem",
           "dynamodb:PutItem",
           "dynamodb:DeleteItem",
           "dynamodb:DescribeTable",
         ]
         Effect   = "Allow"
-        Resource = "*"
+        Resource = aws_dynamodb_table.terraform_locks.arn
       },
     ]
   })
