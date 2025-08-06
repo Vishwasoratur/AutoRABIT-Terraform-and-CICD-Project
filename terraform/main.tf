@@ -396,6 +396,9 @@ resource "aws_iam_role_policy" "codebuild_policy" {
           "elasticloadbalancing:DescribeTargetGroupAttributes",
           "dynamodb:ListTagsOfResource",
           "elasticloadbalancing:DescribeTags",
+          "codedeploy:GetDeploymentGroup",
+          "autoscaling:DescribeAutoScalingGroups",
+          "elasticloadbalancing:DescribeListeners",
         ]
         Effect   = "Allow"
         Resource = "*"
