@@ -82,6 +82,38 @@ resource "aws_route_table_association" "public" {
   route_table_id = aws_route_table.public.id
 }
 
+# --- NAT Gateway for Internet Access in Private Subnets ---
+resource "aws_eip" "nat_gateway" {
+  domain     = "vpc"
+  depends_on = [aws_internet_gateway.main]
+}
+
+resource "aws_nat_gateway" "main" {
+  allocation_id = aws_eip.nat_gateway.id
+  # Use one of your public subnets for the NAT Gateway
+  subnet_id     = aws_subnet.public["us-west-2a"].id
+  tags = {
+    Name = "${var.project_name}-nat-gateway"
+  }
+}
+
+resource "aws_route_table" "private" {
+  vpc_id = aws_vpc.main.id
+  route {
+    cidr_block     = "0.0.0.0/0"
+    nat_gateway_id = aws_nat_gateway.main.id
+  }
+  tags = {
+    Name = "${var.project_name}-private-rt"
+  }
+}
+
+resource "aws_route_table_association" "private" {
+  for_each       = aws_subnet.private
+  subnet_id      = each.value.id
+  route_table_id = aws_route_table.private.id
+}
+
 # -----------------------------------------------------------------------------
 # --- Application Load Balancer ---
 # -----------------------------------------------------------------------------
@@ -469,6 +501,9 @@ resource "aws_codedeploy_deployment_group" "main" {
   deployment_group_name = "${var.project_name}-group"
   service_role_arn      = aws_iam_role.codedeploy.arn
 
+  # This is the key change: Tell CodeDeploy which ASG is the "blue" fleet.
+  autoscaling_groups = [aws_autoscaling_group.main.name]
+
   ec2_tag_set {
     ec2_tag_filter {
       key   = "codedeploy-group"
@@ -484,7 +519,7 @@ resource "aws_codedeploy_deployment_group" "main" {
 
   blue_green_deployment_config {
     terminate_blue_instances_on_deployment_success {
-      action                         = "TERMINATE"
+      action                       = "TERMINATE"
       termination_wait_time_in_minutes = 5
     }
     deployment_ready_option {
