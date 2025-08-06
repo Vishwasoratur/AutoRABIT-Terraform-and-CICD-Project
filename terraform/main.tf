@@ -77,8 +77,8 @@ resource "aws_route_table" "public" {
 }
 
 resource "aws_route_table_association" "public" {
-  for_each        = aws_subnet.public
-  subnet_id       = each.value.id
+  for_each       = aws_subnet.public
+  subnet_id      = each.value.id
   route_table_id = aws_route_table.public.id
 }
 
@@ -236,6 +236,12 @@ resource "aws_iam_role_policy_attachment" "ec2_codedeploy_attachment" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSCodeDeployRole"
 }
 
+# ADDED: Attach the AmazonSSMManagedInstanceCore policy for Session Manager
+resource "aws_iam_role_policy_attachment" "ec2_ssm_attachment" {
+  role       = aws_iam_role.ec2_instance_profile.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+}
+
 resource "aws_iam_instance_profile" "main" {
   name = "${var.project_name}-ec2-profile"
   role = aws_iam_role.ec2_instance_profile.name
@@ -280,18 +286,18 @@ resource "aws_autoscaling_group" "main" {
     version = "$Latest"
   }
   tag {
-    key             = "Name"
-    value           = "${var.project_name}-instance"
+    key                 = "Name"
+    value               = "${var.project_name}-instance"
     propagate_at_launch = true
   }
   tag {
-    key             = "Environment"
-    value           = "production"
+    key                 = "Environment"
+    value               = "production"
     propagate_at_launch = true
   }
   tag {
-    key             = "codedeploy-group"
-    value           = "${var.project_name}-group"
+    key                 = "codedeploy-group"
+    value               = "${var.project_name}-group"
     propagate_at_launch = true
   }
 }
@@ -300,7 +306,7 @@ resource "aws_autoscaling_group" "main" {
 # --- CI/CD Stack Resources ---
 # -----------------------------------------------------------------------------
 resource "aws_ecr_repository" "app_repo" {
-  name                = "${var.project_name}-repo"
+  name                 = "${var.project_name}-repo"
   image_tag_mutability = "MUTABLE"
   tags = {
     Name = "${var.project_name}-ecr"
@@ -503,15 +509,15 @@ resource "aws_codedeploy_app" "main" {
   name = "${var.project_name}-app"
 }
 
-# UPDATED: This block now correctly configures a Blue/Green deployment
 resource "aws_codedeploy_deployment_group" "main" {
   app_name              = aws_codedeploy_app.main.name
   deployment_group_name = "${var.project_name}-group"
   service_role_arn      = aws_iam_role.codedeploy.arn
 
-  # This is the key change: Tell CodeDeploy which ASG is the "blue" fleet.
+  # The Auto Scaling Group for an in-place deployment
   autoscaling_groups = [aws_autoscaling_group.main.name]
 
+  # Tag-based filtering to select the instances for deployment
   ec2_tag_set {
     ec2_tag_filter {
       key   = "codedeploy-group"
@@ -520,20 +526,8 @@ resource "aws_codedeploy_deployment_group" "main" {
     }
   }
 
-  deployment_style {
-    deployment_option = "WITH_TRAFFIC_CONTROL"
-    deployment_type   = "BLUE_GREEN"
-  }
-
-  blue_green_deployment_config {
-    terminate_blue_instances_on_deployment_success {
-      action                       = "TERMINATE"
-      termination_wait_time_in_minutes = 5
-    }
-    deployment_ready_option {
-      action_on_timeout = "CONTINUE_DEPLOYMENT"
-    }
-  }
+  # This is the correct configuration for an in-place deployment
+  deployment_config_name = "CodeDeployDefault.AllAtOnce"
 
   load_balancer_info {
     target_group_info {
@@ -546,7 +540,6 @@ resource "aws_codedeploy_deployment_group" "main" {
     events  = ["DEPLOYMENT_FAILURE"]
   }
 }
-
 # --- CodePipeline and CodeBuild ---
 resource "aws_codepipeline" "main" {
   name     = "${var.project_name}-pipeline"
@@ -595,15 +588,15 @@ resource "aws_codepipeline" "main" {
   stage {
     name = "Deploy"
     action {
-      name            = "Deploy"
-      category        = "Deploy"
-      owner           = "AWS"
-      provider        = "CodeDeploy"
-      version         = "1"
-      input_artifacts = ["BuildArtifact"]
+      name             = "Deploy"
+      category         = "Deploy"
+      owner            = "AWS"
+      provider         = "CodeDeploy"
+      version          = "1"
+      input_artifacts  = ["BuildArtifact"]
 
       configuration = {
-        ApplicationName   = aws_codedeploy_app.main.name
+        ApplicationName     = aws_codedeploy_app.main.name
         DeploymentGroupName = aws_codedeploy_deployment_group.main.deployment_group_name
       }
     }
@@ -638,9 +631,4 @@ resource "aws_codebuild_project" "main" {
   tags = {
     Name = "${var.project_name}-codebuild"
   }
-}
-
-resource "aws_iam_role_policy_attachment" "ec2_ssm_attachment" {
-  role       = aws_iam_role.ec2_instance_profile.name
-  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
 }
