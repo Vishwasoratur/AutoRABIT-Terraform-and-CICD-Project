@@ -220,12 +220,20 @@ resource "aws_iam_role_policy" "ec2_instance_policy" {
           "ecr:GetAuthorizationToken",
           "codedeploy:PutLifecycleEventHookExecutionStatus",
           "ssm:GetParameters",
+          # ADDED: Permission to download the CodeDeploy agent from S3
+          "s3:GetObject"
         ]
         Effect   = "Allow"
         Resource = "*"
       },
     ]
   })
+}
+
+# ADDED: Attach the AWSCodeDeployRole policy to the EC2 instance role
+resource "aws_iam_role_policy_attachment" "ec2_codedeploy_attachment" {
+  role       = aws_iam_role.ec2_instance_profile.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSCodeDeployRole"
 }
 
 resource "aws_iam_instance_profile" "main" {
@@ -395,7 +403,7 @@ resource "aws_iam_role" "codebuild" {
   })
 }
 
-# UPDATED: This IAM policy now includes all the necessary read permissions
+# This IAM policy now includes all the necessary read permissions
 # and resource-specific permissions for Terraform to function.
 resource "aws_iam_role_policy" "codebuild_policy" {
   name = "${var.project_name}-codebuild-policy"
