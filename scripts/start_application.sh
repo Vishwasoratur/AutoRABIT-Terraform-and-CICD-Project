@@ -1,10 +1,13 @@
 #!/bin/bash
+
+# Define the ECR repository URI directly
+ECR_REPO_URI="058264310461.dkr.ecr.us-west-2.amazonaws.com/devops-project-repo"
+
 # Stop and remove old containers to ensure idempotency
 docker stop hello-app || true
 docker rm hello-app || true
 
 # Get the latest image from ECR
-ECR_REPO_URI=$(aws ecr describe-repositories --repository-names devops-project-repo --query "repositories[0].repositoryUri" --output text)
 docker pull $ECR_REPO_URI:latest
 
 # Run the new container
