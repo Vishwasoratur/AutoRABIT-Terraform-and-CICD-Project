@@ -297,7 +297,6 @@ resource "aws_iam_role_policy" "codepipeline" {
           "ecr:BatchCheckLayerAvailability",
           "codebuild:StartBuild",
           "codebuild:StopBuild",
-          # CORRECTED: Add this missing permission
           "codebuild:BatchGetBuilds",
           "codedeploy:*",
           "iam:PassRole",
@@ -368,6 +367,11 @@ resource "aws_iam_role_policy" "codebuild_policy" {
           "ecr:PutImage",
           "iam:PassRole",
           "ssm:*",
+          # ADDED: DynamoDB permissions for Terraform state locking
+          "dynamodb:GetItem",
+          "dynamodb:PutItem",
+          "dynamodb:DeleteItem",
+          "dynamodb:DescribeTable",
         ]
         Effect   = "Allow"
         Resource = "*"
@@ -408,7 +412,6 @@ resource "aws_codedeploy_deployment_group" "main" {
   deployment_group_name = "${var.project_name}-group"
   service_role_arn      = aws_iam_role.codedeploy.arn
 
-  # CORRECTED: Use the `tags` block for tag filtering
   ec2_tag_set {
     ec2_tag_filter {
       key   = "codedeploy-group"
@@ -427,7 +430,6 @@ resource "aws_codedeploy_deployment_group" "main" {
       action = "TERMINATE"
       termination_wait_time_in_minutes = 5
     }
-    # ADDED: This block is required for Blue/Green deployments
     deployment_ready_option {
       action_on_timeout = "CONTINUE_DEPLOYMENT"
     }
