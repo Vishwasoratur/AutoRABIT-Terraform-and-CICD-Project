@@ -354,6 +354,7 @@ resource "aws_iam_role" "codebuild" {
   })
 }
 
+# UPDATED: This IAM policy now includes all the necessary read permissions for Terraform to function.
 resource "aws_iam_role_policy" "codebuild_policy" {
   name = "${var.project_name}-codebuild-policy"
   role = aws_iam_role.codebuild.id
@@ -365,23 +366,45 @@ resource "aws_iam_role_policy" "codebuild_policy" {
           "logs:CreateLogGroup",
           "logs:CreateLogStream",
           "logs:PutLogEvents",
-          "s3:*",
-          "ecr:*",
+          "s3:*", # Broad permissions for S3 for artifact and state management
+          "ecr:*", # Broad permissions for ECR for image management
           "iam:PassRole",
           "ssm:*",
+          "dynamodb:GetItem",
+          "dynamodb:PutItem",
+          "dynamodb:DeleteItem",
+          "dynamodb:DescribeTable",
+          "ec2:Describe*",
+          "iam:List*",
+          "iam:Get*",
+          "codedeploy:ListApplications",
+          "codedeploy:GetApplication",
+          "codepipeline:ListActionTypes"
         ]
         Effect   = "Allow"
         Resource = "*"
       },
       {
-        Action = [
+        Effect   = "Allow"
+        Action   = [
           "dynamodb:GetItem",
           "dynamodb:PutItem",
           "dynamodb:DeleteItem",
-          "dynamodb:DescribeTable",
+          "dynamodb:DescribeContinuousBackups", # Added this missing permission
         ]
-        Effect   = "Allow"
         Resource = aws_dynamodb_table.terraform_locks.arn
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:GetObject",
+          "s3:PutObject",
+          "s3:GetBucketAcl",
+        ]
+        Resource = [
+          "${aws_s3_bucket.codepipeline_artifacts.arn}/*",
+          aws_s3_bucket.codepipeline_artifacts.arn,
+        ]
       },
     ]
   })
