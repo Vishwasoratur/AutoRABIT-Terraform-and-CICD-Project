@@ -399,6 +399,13 @@ resource "aws_iam_role_policy" "codebuild_policy" {
           "codedeploy:GetDeploymentGroup",
           "autoscaling:DescribeAutoScalingGroups",
           "elasticloadbalancing:DescribeListeners",
+          "codepipeline:GetPipeline",
+          "elasticloadbalancing:DescribeListenerAttributes",
+          # Newly added permissions
+          "codepipeline:*",
+          "iam:PutRolePolicy",
+          "ec2:CreateLaunchTemplateVersion",
+          "codedeploy:PutLifecycleEventHookExecutionStatus",
         ]
         Effect   = "Allow"
         Resource = "*"
