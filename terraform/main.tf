@@ -385,7 +385,13 @@ resource "aws_iam_role_policy" "codebuild_policy" {
           "iam:Get*",
           "codedeploy:ListApplications",
           "codedeploy:GetApplication",
-          "codepipeline:ListActionTypes"
+          "codepipeline:ListActionTypes",
+          # Added new permissions for Terraform to read resource states
+          "elasticloadbalancing:DescribeLoadBalancers",
+          "elasticloadbalancing:DescribeTargetGroups",
+          "dynamodb:DescribeTimeToLive",
+          "codedeploy:ListTagsForResource",
+          "codebuild:BatchGetProjects"
         ]
         Effect   = "Allow"
         Resource = "*"
@@ -396,7 +402,7 @@ resource "aws_iam_role_policy" "codebuild_policy" {
           "dynamodb:GetItem",
           "dynamodb:PutItem",
           "dynamodb:DeleteItem",
-          "dynamodb:DescribeContinuousBackups", # Added this missing permission
+          "dynamodb:DescribeContinuousBackups",
           "dynamodb:DescribeTable"
         ]
         Resource = aws_dynamodb_table.terraform_locks.arn
