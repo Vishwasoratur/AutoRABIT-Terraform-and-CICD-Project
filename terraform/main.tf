@@ -1,6 +1,6 @@
 # Define local variables for consistency
 locals {
-  # CHANGED: Availability Zones for us-west-2
+  # Availability Zones for us-west-2
   availability_zones = ["us-west-2a", "us-west-2b"]
   cidr_ranges = {
     public_0  = "10.0.0.0/24"
@@ -10,22 +10,25 @@ locals {
   }
 }
 
+# --- Data Source: AMI for EC2 Instances ---
 data "aws_ami" "amazon_linux_2" {
   most_recent = true
   owners      = ["amazon"]
 
   filter {
-    name  = "name"
+    name   = "name"
     values = ["amzn2-ami-hvm-*-x86_64-gp2"]
   }
 
   filter {
-    name  = "virtualization-type"
+    name   = "virtualization-type"
     values = ["hvm"]
   }
 }
 
+# -----------------------------------------------------------------------------
 # --- VPC and Networking ---
+# -----------------------------------------------------------------------------
 resource "aws_vpc" "main" {
   cidr_block         = "10.0.0.0/16"
   enable_dns_hostnames = true
@@ -79,7 +82,9 @@ resource "aws_route_table_association" "public" {
   route_table_id = aws_route_table.public.id
 }
 
+# -----------------------------------------------------------------------------
 # --- Application Load Balancer ---
+# -----------------------------------------------------------------------------
 resource "aws_security_group" "alb" {
   name        = "${var.project_name}-alb-sg"
   vpc_id      = aws_vpc.main.id
@@ -133,7 +138,9 @@ resource "aws_lb_listener" "http" {
   }
 }
 
+# -----------------------------------------------------------------------------
 # --- EC2, IAM and Auto Scaling Group ---
+# -----------------------------------------------------------------------------
 resource "aws_security_group" "ec2" {
   name        = "${var.project_name}-ec2-sg"
   vpc_id      = aws_vpc.main.id
@@ -198,8 +205,7 @@ resource "aws_launch_template" "main" {
   name_prefix          = "${var.project_name}-lt-"
   image_id             = data.aws_ami.amazon_linux_2.id
   instance_type        = "t2.micro"
-  # IMPORTANT: This key pair must exist in the us-west-2 region.
-  key_name             = "sandy"
+  key_name             = "sandy" # Make sure this key pair exists in us-west-2
   vpc_security_group_ids = [aws_security_group.ec2.id]
   iam_instance_profile {
     arn = aws_iam_instance_profile.main.arn
@@ -210,7 +216,7 @@ sudo yum update -y
 sudo yum install -y ruby
 sudo yum install -y wget
 cd /home/ec2-user
-# CHANGED: Using var.aws_region to make the CodeDeploy URL dynamic
+# Using var.aws_region to make the CodeDeploy URL dynamic
 wget https://aws-codedeploy-${var.aws_region}.s3.${var.aws_region}.amazonaws.com/latest/install
 chmod +x ./install
 sudo ./install auto
@@ -250,7 +256,9 @@ resource "aws_autoscaling_group" "main" {
   }
 }
 
+# -----------------------------------------------------------------------------
 # --- CI/CD Stack Resources ---
+# -----------------------------------------------------------------------------
 resource "aws_ecr_repository" "app_repo" {
   name                = "${var.project_name}-repo"
   image_tag_mutability = "MUTABLE"
@@ -279,7 +287,7 @@ resource "aws_dynamodb_table" "terraform_locks" {
   }
 }
 
-# --- IAM Roles for CodePipeline and CodeBuild ---
+# --- IAM Roles for CodePipeline, CodeBuild, and CodeDeploy ---
 resource "aws_iam_role" "codepipeline" {
   name = "${var.project_name}-codepipeline-role"
   assume_role_policy = jsonencode({
@@ -308,6 +316,7 @@ resource "aws_iam_role_policy" "codepipeline" {
           "ecr:GetDownloadUrlForLayer",
           "ecr:BatchGetImage",
           "ecr:BatchCheckLayerAvailability",
+          "ecr:GetAuthorizationToken",
           "codebuild:StartBuild",
           "codebuild:StopBuild",
           "codebuild:BatchGetBuilds",
@@ -354,7 +363,8 @@ resource "aws_iam_role" "codebuild" {
   })
 }
 
-# UPDATED: This IAM policy now includes all the necessary read permissions for Terraform to function.
+# UPDATED: This IAM policy now includes all the necessary read permissions
+# and resource-specific permissions for Terraform to function.
 resource "aws_iam_role_policy" "codebuild_policy" {
   name = "${var.project_name}-codebuild-policy"
   role = aws_iam_role.codebuild.id
@@ -370,10 +380,6 @@ resource "aws_iam_role_policy" "codebuild_policy" {
           "ecr:*", # Broad permissions for ECR for image management
           "iam:PassRole",
           "ssm:*",
-          "dynamodb:GetItem",
-          "dynamodb:PutItem",
-          "dynamodb:DeleteItem",
-          "dynamodb:DescribeTable",
           "ec2:Describe*",
           "iam:List*",
           "iam:Get*",
@@ -385,12 +391,13 @@ resource "aws_iam_role_policy" "codebuild_policy" {
         Resource = "*"
       },
       {
-        Effect   = "Allow"
-        Action   = [
+        Effect = "Allow"
+        Action = [
           "dynamodb:GetItem",
           "dynamodb:PutItem",
           "dynamodb:DeleteItem",
           "dynamodb:DescribeContinuousBackups", # Added this missing permission
+          "dynamodb:DescribeTable"
         ]
         Resource = aws_dynamodb_table.terraform_locks.arn
       },
@@ -410,11 +417,6 @@ resource "aws_iam_role_policy" "codebuild_policy" {
   })
 }
 
-# --- CodeDeploy Application and Deployment Group ---
-resource "aws_codedeploy_app" "main" {
-  name = "${var.project_name}-app"
-}
-
 resource "aws_iam_role" "codedeploy" {
   name = "${var.project_name}-codedeploy-role"
   assume_role_policy = jsonencode({
@@ -432,8 +434,13 @@ resource "aws_iam_role" "codedeploy" {
 }
 
 resource "aws_iam_role_policy_attachment" "codedeploy_attachment" {
-  role        = aws_iam_role.codedeploy.name
+  role       = aws_iam_role.codedeploy.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSCodeDeployRole"
+}
+
+# --- CodeDeploy Application and Deployment Group ---
+resource "aws_codedeploy_app" "main" {
+  name = "${var.project_name}-app"
 }
 
 # UPDATED: This block now correctly configures a Blue/Green deployment
@@ -457,7 +464,7 @@ resource "aws_codedeploy_deployment_group" "main" {
 
   blue_green_deployment_config {
     terminate_blue_instances_on_deployment_success {
-      action = "TERMINATE"
+      action                         = "TERMINATE"
       termination_wait_time_in_minutes = 5
     }
     deployment_ready_option {
@@ -475,27 +482,26 @@ resource "aws_codedeploy_deployment_group" "main" {
     enabled = true
     events  = ["DEPLOYMENT_FAILURE"]
   }
-
 }
 
 # --- CodePipeline and CodeBuild ---
 resource "aws_codepipeline" "main" {
-  name       = "${var.project_name}-pipeline"
+  name     = "${var.project_name}-pipeline"
   role_arn = aws_iam_role.codepipeline.arn
 
   artifact_store {
     location = aws_s3_bucket.codepipeline_artifacts.id
-    type       = "S3"
+    type     = "S3"
   }
 
   stage {
     name = "Source"
     action {
-      name            = "Source"
-      category        = "Source"
-      owner           = "AWS"
-      provider        = "CodeStarSourceConnection"
-      version         = "1"
+      name             = "Source"
+      category         = "Source"
+      owner            = "AWS"
+      provider         = "CodeStarSourceConnection"
+      version          = "1"
       output_artifacts = ["SourceArtifact"]
 
       configuration = {
@@ -509,11 +515,11 @@ resource "aws_codepipeline" "main" {
   stage {
     name = "Build"
     action {
-      name            = "Build"
-      category        = "Build"
-      owner           = "AWS"
-      provider        = "CodeBuild"
-      version         = "1"
+      name             = "Build"
+      category         = "Build"
+      owner            = "AWS"
+      provider         = "CodeBuild"
+      version          = "1"
       input_artifacts  = ["SourceArtifact"]
       output_artifacts = ["BuildArtifact"]
 
@@ -534,7 +540,7 @@ resource "aws_codepipeline" "main" {
       input_artifacts = ["BuildArtifact"]
 
       configuration = {
-        ApplicationName      = aws_codedeploy_app.main.name
+        ApplicationName   = aws_codedeploy_app.main.name
         DeploymentGroupName = aws_codedeploy_deployment_group.main.deployment_group_name
       }
     }
@@ -562,7 +568,7 @@ resource "aws_codebuild_project" "main" {
   }
 
   source {
-    type        = "CODEPIPELINE"
+    type      = "CODEPIPELINE"
     buildspec = "buildspec.yml"
   }
 
