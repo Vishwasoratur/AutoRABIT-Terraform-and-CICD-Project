@@ -21,8 +21,8 @@ data "aws_ami" "amazon_linux_2" {
   }
 
   filter {
-    name   = "virtualization-type"
-    values = ["hvm"]
+    name           = "virtualization-type"
+    values         = ["hvm"]
   }
 }
 
@@ -135,11 +135,11 @@ resource "aws_security_group" "alb" {
 }
 
 resource "aws_lb" "main" {
-  name              = "${var.project_name}-alb"
-  internal          = false
+  name               = "${var.project_name}-alb"
+  internal           = false
   load_balancer_type = "application"
-  security_groups   = [aws_security_group.alb.id]
-  subnets           = [for subnet in aws_subnet.public : subnet.id]
+  security_groups    = [aws_security_group.alb.id]
+  subnets            = [for subnet in aws_subnet.public : subnet.id]
 }
 
 resource "aws_lb_target_group" "app" {
@@ -252,10 +252,10 @@ resource "aws_iam_instance_profile" "main" {
 }
 
 resource "aws_launch_template" "main" {
-  name_prefix           = "${var.project_name}-lt-"
-  image_id              = data.aws_ami.amazon_linux_2.id
-  instance_type         = "t2.micro"
-  key_name              = "sandy" # Make sure this key pair exists in us-west-2
+  name_prefix            = "${var.project_name}-lt-"
+  image_id               = data.aws_ami.amazon_linux_2.id
+  instance_type          = "t2.micro"
+  key_name               = "sandy" # Make sure this key pair exists in us-west-2
   vpc_security_group_ids = [aws_security_group.ec2.id]
   iam_instance_profile {
     arn = aws_iam_instance_profile.main.arn
@@ -568,6 +568,14 @@ resource "aws_sns_topic" "alarm_notifications" {
   name = "${var.project_name}-alarm-notifications"
 }
 
+# NEW: SNS Topic Subscription for email notifications
+resource "aws_sns_topic_subscription" "email_subscription" {
+  topic_arn = aws_sns_topic.alarm_notifications.arn
+  protocol  = "email"
+  endpoint  = "vishwasoratur2003@gmail.com"
+}
+
+
 resource "aws_cloudwatch_metric_alarm" "alb_5xx_alarm" {
   alarm_name          = "${var.project_name}-alb-5xx-errors"
   comparison_operator = "GreaterThanOrEqualToThreshold"
@@ -609,8 +617,8 @@ resource "aws_cloudwatch_metric_alarm" "alb_unhealthy_hosts" {
 
 # --- CodePipeline and CodeBuild ---
 resource "aws_codepipeline" "main" {
-  name     = "${var.project_name}-pipeline"
-  role_arn = aws_iam_role.codepipeline.arn
+  name      = "${var.project_name}-pipeline"
+  role_arn  = aws_iam_role.codepipeline.arn
 
   artifact_store {
     location = aws_s3_bucket.codepipeline_artifacts.id
