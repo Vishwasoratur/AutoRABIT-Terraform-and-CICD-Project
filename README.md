@@ -105,6 +105,12 @@ github_connection_arn  = "<your_codestar_connection_arn>"
 terraform plan
 terraform apply --auto-approve
 ```
+```bash
+terraform import aws_dynamodb_table.terraform_locks vishwa-devops-project-terraform-locks
+```
+If required run this above command as the dynamodb would be created twice with the same name, one for the backend and one when you apply the terraform apply command.
+or
+change the dynamodb table name for backend configuratiom
 
 ---
 
