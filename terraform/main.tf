@@ -263,41 +263,27 @@ resource "aws_launch_template" "main" {
   user_data = base64encode(<<-EOF
 #!/bin/bash
 sudo yum update -y
-sudo yum install -y ruby wget docker
-
-# Install CodeDeploy Agent
+sudo yum install -y ruby
+sudo yum install -y wget
 cd /home/ec2-user
+# Using var.aws_region to make the CodeDeploy URL dynamic
 wget https://aws-codedeploy-${var.aws_region}.s3.${var.aws_region}.amazonaws.com/latest/install
 chmod +x ./install
 sudo ./install auto
 sudo service codedeploy-agent status
+sudo yum install -y docker
+sudo service docker start
+sudo usermod -a -G docker ec2-user
 
-# Start and enable Docker
-sudo systemctl enable docker
-sudo systemctl start docker
+# Configure Docker to use the awslogs driver
+sudo mkdir -p /etc/docker
+sudo echo "{ \"log-driver\": \"awslogs\", \"log-opts\": { \"awslogs-group\": \"${var.project_name}-container-logs\", \"awslogs-region\": \"${var.aws_region}\", \"awslogs-stream-prefix\": \"app\" } }" | sudo tee /etc/docker/daemon.json > /dev/null
 
-# Add users to docker group
-sudo usermod -aG docker ec2-user
-sudo usermod -aG docker root
-
-# Configure Docker logging to CloudWatch
-cat <<EOT | sudo tee /etc/docker/daemon.json
-{
-  "log-driver": "awslogs",
-  "log-opts": {
-    "awslogs-group": "${var.project_name}-container-logs",
-    "awslogs-region": "${var.aws_region}",
-    "awslogs-stream-prefix": "app"
-  }
-}
-EOT
-
-# Restart Docker to apply log config
+# Restart the Docker service to apply the changes
 sudo systemctl restart docker
 EOF
-)
+  )
 }
-
 
 resource "aws_autoscaling_group" "main" {
   name                = "${var.project_name}-asg"
