@@ -108,7 +108,9 @@ terraform apply --auto-approve
 ```bash
 terraform import aws_dynamodb_table.terraform_locks vishwa-devops-project-terraform-locks
 ```
-If required run this command as the same dynamodb is created twice, one for the backend and one when you apply the terraform apply command.
+If required run this above command as the dynamodb would be created twice with the same name, one for the backend and one when you apply the terraform apply command.
+or
+change the dynamodb table name for backend configuratiom
 
 ---
 
