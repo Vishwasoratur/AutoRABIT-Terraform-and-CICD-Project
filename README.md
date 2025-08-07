@@ -66,7 +66,7 @@ cd AutoRABIT-Terraform-and-CICD-Project
 
 ### 2. Configure Terraform Backend
 
-Create a `Terraform-backend` folder and a `backend.tf` file:
+In the `terraform` directory go to `provider.tf` and configure the backend:
 
 ```hcl
 terraform {
