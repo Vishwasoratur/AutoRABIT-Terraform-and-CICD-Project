@@ -105,7 +105,9 @@ github_connection_arn  = "<your_codestar_connection_arn>"
 terraform plan
 terraform apply --auto-approve
 ```
+terraform import aws_dynamodb_table.terraform_locks vishwa-devops-project-terraform-locks
 
+If required run this command as the same dynamodb is created twice, one for the backend and one when you apply the terraform apply command.
 ---
 
 ## 🚀 Deployment Workflow: From Commit to Production
