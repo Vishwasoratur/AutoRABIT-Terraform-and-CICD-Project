@@ -166,9 +166,6 @@ terraform apply --auto-approve
 ├── README.md
 ├── appspec.yml
 ├── buildspec.yml
-├── main.tf
-├── terraform.tfvars
-├── variables.tf
 ```
 
 ---
