@@ -14,7 +14,7 @@ terraform {
     key            = "devops-project/terraform.tfstate"
     region         = "us-west-2" # <-- CHANGED to us-west-2
     encrypt        = true
-    dynamodb_table = "vishwa-devops-project-terraform-locks" 
+    dynamodb_table = "vishwa-devops-project-terraform" 
   }
 }
 
