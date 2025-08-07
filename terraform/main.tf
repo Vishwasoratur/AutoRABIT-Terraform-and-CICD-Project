@@ -274,6 +274,7 @@ sudo service codedeploy-agent status
 sudo yum install -y docker
 sudo service docker start
 sudo usermod -a -G docker ec2-user
+sudo usermod -a -G docker root
 
 # Configure Docker to use the awslogs driver
 sudo mkdir -p /etc/docker
