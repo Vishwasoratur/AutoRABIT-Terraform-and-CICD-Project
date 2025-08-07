@@ -167,21 +167,7 @@ terraform apply --auto-approve
 ├── appspec.yml
 ├── buildspec.yml
 ```
-
 ---
-
-## 🙌 Final Words
-
-This project demonstrates a **real-world DevOps workflow** by combining the power of:
-- ✅ Terraform (IaC)
-- ✅ AWS CodePipeline, CodeBuild, CodeDeploy
-- ✅ Docker, ECR, EC2, ASG
-- ✅ CloudWatch for Observability
-
-Everything is automated from **code push to production deployment** — ensuring **speed, safety, and scalability**.
-
----
-
 ## 🗂️ Terraform Backend Bootstrap Configuration
 
 This project includes a separate folder, **`Terraform-backend/`**, dedicated to **bootstrapping the Terraform backend infrastructure**. It contains:
@@ -207,6 +193,15 @@ You must apply this folder **once before running the main infrastructure** to bo
 
 📝 Note: The terraform.tfstate and related files are excluded via .gitignore to prevent committing sensitive state information to Github.
 ---
+## 🙌 Final Words
+
+This project demonstrates a **real-world DevOps workflow** by combining the power of:
+- ✅ Terraform (IaC)
+- ✅ AWS CodePipeline, CodeBuild, CodeDeploy
+- ✅ Docker, ECR, EC2, ASG
+- ✅ CloudWatch for Observability
+
+Everything is automated from **code push to production deployment** — ensuring **speed, safety, and scalability**.
 
 **Vishwanath Soratur**  
 🔗 [LinkedIn](https://www.linkedin.com/in/vishwanath-soratur-87295128a/) | 📁 [GitHub](https://github.com/Vishwasoratur)
