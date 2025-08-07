@@ -252,10 +252,10 @@ resource "aws_iam_instance_profile" "main" {
 }
 
 resource "aws_launch_template" "main" {
-  name_prefix           = "${var.project_name}-lt-"
-  image_id              = data.aws_ami.amazon_linux_2.id
-  instance_type         = "t2.micro"
-  key_name              = "sandy" # Make sure this key pair exists in us-west-2
+  name_prefix            = "${var.project_name}-lt-"
+  image_id               = data.aws_ami.amazon_linux_2.id
+  instance_type          = "t2.micro"
+  key_name               = "sandy" # Make sure this key pair exists in us-west-2
   vpc_security_group_ids = [aws_security_group.ec2.id]
   iam_instance_profile {
     arn = aws_iam_instance_profile.main.arn

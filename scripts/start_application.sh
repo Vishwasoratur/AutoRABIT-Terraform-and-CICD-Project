@@ -21,4 +21,3 @@ docker pull $ECR_REPO_URI:latest
 # The -p flag maps port 80 on the host to port 80 in the container.
 # The --name flag gives the container a friendly name.
 docker run -d -p 80:80 --name hello-app $ECR_REPO_URI:latest
-
