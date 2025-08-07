@@ -252,10 +252,10 @@ resource "aws_iam_instance_profile" "main" {
 }
 
 resource "aws_launch_template" "main" {
-  name_prefix            = "${var.project_name}-lt-"
-  image_id               = data.aws_ami.amazon_linux_2.id
-  instance_type          = "t2.micro"
-  key_name               = "sandy" # Make sure this key pair exists in us-west-2
+  name_prefix           = "${var.project_name}-lt-"
+  image_id              = data.aws_ami.amazon_linux_2.id
+  instance_type         = "t2.micro"
+  key_name              = "sandy" # Make sure this key pair exists in us-west-2
   vpc_security_group_ids = [aws_security_group.ec2.id]
   iam_instance_profile {
     arn = aws_iam_instance_profile.main.arn
@@ -274,7 +274,6 @@ sudo service codedeploy-agent status
 sudo yum install -y docker
 sudo service docker start
 sudo usermod -a -G docker ec2-user
-sudo usermod -a -G docker root
 
 # Configure Docker to use the awslogs driver
 sudo mkdir -p /etc/docker
