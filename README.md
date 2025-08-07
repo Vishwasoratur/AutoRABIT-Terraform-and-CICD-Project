@@ -1,49 +1,74 @@
-CI/CD for a Containerized Application on AWS
 
-Project Overview 🚀
-This project establishes a comprehensive, production-grade Continuous Integration/Continuous Deployment (CI/CD) pipeline for a containerized web application on AWS. The entire infrastructure is defined as Infrastructure as Code (IaC) using Terraform, ensuring a consistent, version-controlled, and fully automated environment.
+# 🚀 CI/CD for a Containerized Application on AWS
 
-The core objective is to showcase a robust DevOps workflow that automatically builds, tests, and deploys application updates with high availability and reliability. The architecture is engineered to be fault-tolerant, scalable, and easily manageable.
+## 📌 Project Overview
 
-Key Architectural Principles
-High Availability & Reliability: The infrastructure is deployed across multiple Availability Zones (AZs). The Application Load Balancer (ALB) and Auto Scaling Group (ASG) ensure that the application remains available even if an entire AZ or an individual instance fails.
+This project establishes a **production-grade CI/CD pipeline** for a **containerized web application on AWS**, defined entirely using **Terraform (IaC)**.
 
-Automation: The CI/CD pipeline, orchestrated by AWS CodePipeline, is fully automated. A single git push triggers the entire workflow, from code build to deployment, eliminating manual intervention and human error.
+The objective is to showcase a **robust DevOps workflow** that:
+- **Automatically builds, tests, and deploys** application updates
+- Ensures **high availability, scalability, and fault-tolerance**
+- Embeds **SRE principles** like idempotency, observability, and rollback
 
-Observability: The project is instrumented with CloudWatch Alarms that proactively monitor critical application metrics (e.g., 5xx errors, unhealthy hosts). Container logs are centralized in CloudWatch Log Groups, providing a unified view for troubleshooting.
+---
 
-Idempotency: All deployment scripts are written to be idempotent, meaning they can be run multiple times without causing unintended side effects. For example, docker stop hello-app || true ensures the script continues even if the container doesn't exist.
+## 🏗️ Key Architectural Principles
 
-Infrastructure as Code (IaC): Terraform manages every aspect of the infrastructure, from the VPC to the IAM roles. This provides a single source of truth for the entire environment, making it easy to replicate, modify, and audit.
+### ✅ High Availability & Reliability
+- Infrastructure spans **multiple Availability Zones (AZs)**
+- **Application Load Balancer (ALB)** and **Auto Scaling Group (ASG)** ensure uptime during instance or AZ failures
 
-Prerequisites 🛠️
-To set up this production-ready environment, you will need the following:
+### ⚙️ Automation
+- **AWS CodePipeline** triggers deployment from a **Git push**
+- Eliminates manual intervention and reduces human error
 
-AWS Account: An account with an IAM user configured with administrative access keys.
+### 📊 Observability
+- **CloudWatch Alarms** monitor metrics (e.g., 5xx errors, unhealthy hosts)
+- **Container logs** are centralized in **CloudWatch Log Groups** for easy debugging
 
-AWS CLI: The AWS Command Line Interface must be installed and configured.
+### ♻️ Idempotency
+- All scripts are idempotent:  
+  Example:
+  ```bash
+  docker stop hello-app || true
+  ```
+  Continues script execution even if the container doesn't exist.
 
-GitHub Account: A repository containing the application code, Dockerfile, appspec.yml, and all necessary scripts.
+### 📦 Infrastructure as Code (IaC)
+- Everything is defined in **Terraform**:
+  - VPC, Subnets, IAM roles, EC2, ALB, ASG, ECR, CodePipeline, etc.
+  - Enables version control, auditing, and reproducibility
 
-AWS CodeStar Connection: A pre-configured connection to your GitHub repository. The Connection ARN is a required variable.
+---
 
-Terraform CLI: Version 1.7.0 or newer is installed on your local machine to manage the infrastructure.
+## 🛠️ Prerequisites
 
-SSH Key Pair: An EC2 key pair named sandy in the us-west-2 region.
+Ensure the following tools/accounts are ready:
 
-Setup Instructions
-1. Clone the Repository
-Bash
+- ✅ **AWS Account** with IAM user and programmatic access
+- ✅ **AWS CLI** installed and configured
+- ✅ **GitHub Account** with the application code and necessary files:
+  - `Dockerfile`, `appspec.yml`, and deployment scripts
+- ✅ **AWS CodeStar Connection** to GitHub (Connection ARN required)
+- ✅ **Terraform CLI** version **1.7.0 or newer**
+- ✅ **SSH Key Pair** named `sandy` in the `us-west-2` region
 
+---
+
+## ⚙️ Setup Instructions
+
+### 1. Clone the Repository
+
+```bash
 git clone https://github.com/Vishwasoratur/AutoRABIT-Terraform-and-CICD-Project.git
 cd AutoRABIT-Terraform-and-CICD-Project
+```
 
-2. Configure Terraform Backend
-Create a terraform-backend directory, create a backend.tf file. This file configures the remote state and state locking, which is essential for a production environment to prevent concurrent state modifications.
+### 2. Configure Terraform Backend
 
-Terraform
+Create a `Terraform-backend` folder and a `backend.tf` file:
 
-# terraform/backend.tf
+```hcl
 terraform {
   backend "s3" {
     bucket         = "vishwa-devops-project-terraform-state-2025-us-west-2"
@@ -53,54 +78,139 @@ terraform {
     encrypt        = true
   }
 }
-3. Initialize Terraform
-Bash
+```
 
+### 3. Initialize Terraform
+
+```bash
 terraform init
-4. Define Project Variables
-Create a terraform.tfvars file to pass custom values to your Terraform configuration.
+```
 
-project_name          = "devops-project"
-aws_region            = "us-west-2"
-github_owner          = "<Your-GitHub-Username>"
-github_repo_name      = "<Your-Repository-Name>"
-github_branch         = "main"
-github_connection_arn = "<Your-CodeStar-Connection-ARN>"
-5. Deploy the Infrastructure
-Bash
+### 4. Define Project Variables
 
+Create a `terraform.tfvars` file:
+
+```hcl
+project_name           = "devops-project"
+aws_region             = "us-west-2"
+github_owner           = "<your_github_username>"
+github_repo_name       = "<your_repo_name>"
+github_branch          = "main"
+github_connection_arn  = "<your_codestar_connection_arn>"
+```
+
+### 5. Deploy the Infrastructure
+
+```bash
 terraform plan
 terraform apply --auto-approve
-This will provision all the necessary AWS resources, setting up the entire CI/CD pipeline and application environment.
+```
 
-The Deployment Workflow: From Commit to Production
-The pipeline is triggered automatically by a git push to the main branch, following these stages:
+---
 
-Source: AWS CodePipeline detects the code change in your GitHub repository and pulls the latest version.
+## 🚀 Deployment Workflow: From Commit to Production
 
-Build: AWS CodeBuild executes the buildspec.yml file. This stage builds the Docker image, pushes it to ECR, and then runs Terraform to update the infrastructure, specifically by updating the aws_launch_template.
+1. **Source Stage (CodePipeline)**  
+   Detects push to `main` on GitHub via CodeStar Connection.
 
-Deploy: AWS CodeDeploy takes over. The deployment group targets instances in the ASG using a specific tag (codedeploy-group). It executes the appspec.yml hooks to deploy the new image.
+2. **Build Stage (CodeBuild)**  
+   - Executes `buildspec.yml`
+   - Builds Docker image
+   - Pushes to **ECR**
+   - Runs Terraform to update infrastructure (e.g., Launch Template)
 
-Rollback Strategy 🔄
-This project incorporates a robust and automated rollback mechanism, a fundamental principle of reliable deployments.
+3. **Deploy Stage (CodeDeploy)**  
+   - Targets EC2 instances via **ASG tag: `codedeploy-group`**
+   - Executes hooks in `appspec.yml` to deploy the new image
 
-Automated Rollback
-Our pipeline is configured for a zero-touch rollback in case of failure. This is managed by the CodeDeploy Deployment Group. The ValidateService hook is critical here.
+---
 
-Trigger: The validate_service.sh script performs a health check on the newly deployed container. If this script fails (exits with a non-zero status), it signals a deployment failure.
+## 🔁 Rollback Strategy
 
-Action: CodeDeploy, configured with auto_rollback_configuration, automatically detects this failure and immediately stops the deployment. It then reverts all changes on the instances, restoring them to the last known working version of the application.
+### ✅ Automated Rollback (Zero-Touch)
+- `validate_service.sh` script checks container health
+- On failure (non-zero exit), **CodeDeploy automatically rolls back** to the last known good deployment
+- Controlled by `auto_rollback_configuration`
 
-Manual Rollback
-For more complex issues, a manual rollback can be performed:
+### 🛠️ Manual Rollback (When Needed)
+1. Go to **AWS Console > CodeDeploy**
+2. Select the **Deployment Group**
+3. Choose a **successful past deployment**
+4. Click **"Redeploy"** to roll back
 
-Navigate to the AWS CodeDeploy service in the console.
+---
 
-Select the Deployment Group.
+## 📁 Project Folder Structure
 
-From the deployment history, select a previous, successful deployment.
+```
+.
+├── Terraform-backend/
+│   ├── main.tf
+│   ├── terraform.tfvars
+│   └── variables.tf
+├── app/
+│   ├── app.py
+│   └── requirements.txt
+├── scripts/
+│   ├── install_dependencies.sh
+│   ├── start_application.sh
+│   └── validate_service.sh
+├── terraform/
+│   ├── main.tf
+│   ├── outputs.tf
+│   ├── provider.tf
+│   ├── terraform.tfvars
+│   └── variables.tf
+├── .gitignore
+├── Dockerfile
+├── README.md
+├── appspec.yml
+├── buildspec.yml
+├── main.tf
+├── terraform.tfvars
+├── variables.tf
+```
 
-Initiate a Redeploy action to revert the application to that specific version.
+---
 
-This two-pronged approach ensures that a faulty deployment can never take the application offline for an extended period.
+## 🙌 Final Words
+
+This project demonstrates a **real-world DevOps workflow** by combining the power of:
+- ✅ Terraform (IaC)
+- ✅ AWS CodePipeline, CodeBuild, CodeDeploy
+- ✅ Docker, ECR, EC2, ASG
+- ✅ CloudWatch for Observability
+
+Everything is automated from **code push to production deployment** — ensuring **speed, safety, and scalability**.
+
+---
+
+## 🗂️ Terraform Backend Bootstrap Configuration
+
+This project includes a separate folder, **`Terraform-backend/`**, dedicated to **bootstrapping the Terraform backend infrastructure**. It contains:
+
+- `main.tf` – Defines AWS provider, S3 bucket, and DynamoDB table
+- `variables.tf` – Declares input variables
+- `terraform.tfvars` – Provides actual values for the variables
+
+These resources are required to **store Terraform state remotely in S3** and **enable state locking via DynamoDB**, which is critical for a team or production-grade setup.
+
+### 🔧 Key Resources Provisioned:
+
+#### ✅ S3 Bucket (Remote State Storage)
+- Stores Terraform state files
+- Enforces ownership and disables ACLs
+- Enables versioning and server-side encryption (AES256)
+
+#### ✅ DynamoDB Table (State Locking)
+- Prevents concurrent Terraform runs
+- Uses a simple `LockID` as the hash key
+
+You must apply this folder **once before running the main infrastructure** to bootstrap the backend.
+
+📝 Note: The terraform.tfstate and related files are excluded via .gitignore to prevent committing sensitive state information to Github.
+---
+
+**Vishwanath Soratur**  
+🔗 [LinkedIn](https://www.linkedin.com/in/vishwanath-soratur-87295128a/) | 📁 [GitHub](https://github.com/Vishwasoratur)
+
