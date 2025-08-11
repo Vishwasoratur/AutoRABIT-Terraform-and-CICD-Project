@@ -205,8 +205,3 @@ Everything is automated from **code push to production deployment** — ensuring
 **Vishwanath Soratur**  
 🔗 [LinkedIn](https://www.linkedin.com/in/vishwanath-soratur-87295128a/) | 📁 [GitHub](https://github.com/Vishwasoratur)
 
-
-
-
-
-
