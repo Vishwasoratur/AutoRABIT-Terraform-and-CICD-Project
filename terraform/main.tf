@@ -297,7 +297,6 @@ cat <<JSON | sudo tee /etc/docker/daemon.json
   "log-opts": {
     "awslogs-group": "${var.project_name}-container-logs",
     "awslogs-region": "${var.aws_region}",
-    "awslogs-stream-prefix": "app"
   }
 }
 JSON
