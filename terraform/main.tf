@@ -262,25 +262,51 @@ resource "aws_launch_template" "main" {
   }
   user_data = base64encode(<<-EOF
 #!/bin/bash
+exec > >(tee /var/log/user-data.log | logger -t user-data -s 2>/dev/console) 2>&1
+set -e
+
+echo "=== Updating system and installing packages ==="
 sudo yum update -y
-sudo yum install -y ruby
-sudo yum install -y wget
+sudo yum install -y ruby wget docker
+
+echo "=== Installing CodeDeploy agent ==="
 cd /home/ec2-user
-# Using var.aws_region to make the CodeDeploy URL dynamic
 wget https://aws-codedeploy-${var.aws_region}.s3.${var.aws_region}.amazonaws.com/latest/install
 chmod +x ./install
 sudo ./install auto
-sudo service codedeploy-agent status
-sudo yum install -y docker
-sudo service docker start
-sudo usermod -a -G docker ec2-user
+sudo systemctl enable codedeploy-agent
+sudo systemctl start codedeploy-agent
 
-# Configure Docker to use the awslogs driver
+echo "=== Starting Docker service ==="
+sudo systemctl enable docker
+sudo systemctl start docker
+sudo usermod -aG docker ec2-user
+
+echo "=== Checking Docker logging driver support ==="
+if docker info 2>/dev/null | grep -q 'awslogs'; then
+  LOG_DRIVER="awslogs"
+else
+  LOG_DRIVER="json-file"
+fi
+
+echo "=== Writing Docker daemon configuration with driver: $LOG_DRIVER ==="
 sudo mkdir -p /etc/docker
-sudo echo "{ \"log-driver\": \"awslogs\", \"log-opts\": { \"awslogs-group\": \"${var.project_name}-container-logs\", \"awslogs-region\": \"${var.aws_region}\", \"awslogs-stream-prefix\": \"app\" } }" | sudo tee /etc/docker/daemon.json > /dev/null
+cat <<JSON | sudo tee /etc/docker/daemon.json
+{
+  "log-driver": "$LOG_DRIVER",
+  "log-opts": {
+    "awslogs-group": "${var.project_name}-container-logs",
+    "awslogs-region": "${var.aws_region}",
+    "awslogs-stream-prefix": "app"
+  }
+}
+JSON
 
-# Restart the Docker service to apply the changes
+echo "=== Restarting Docker service ==="
+sudo systemctl daemon-reload
 sudo systemctl restart docker
+
+echo "=== User data script completed successfully ==="
 EOF
   )
 }
